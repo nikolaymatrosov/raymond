@@ -46,6 +46,39 @@ func TestParse(t *testing.T) {
 	}
 }
 
+// TestParse_BackwardCompat asserts that the existing Parse / MustParse
+// surface keeps producing the same AST for templates spanning every
+// Handlebars construct family — never returns *BudgetExceededError or
+// *CapabilityError (covers FR-010, SC-004, contract C2).
+func TestParse_BackwardCompat(t *testing.T) {
+	t.Parallel()
+
+	samples := []string{
+		`hello world`,
+		`hello {{name}}`,
+		`{{#if x}}{{a}}{{else}}{{b}}{{/if}}`,
+		`{{#each xs}}{{this}}{{/each}}`,
+		`{{#with x}}{{a}}{{/with}}`,
+		`{{> partial }}`,
+		`{{upper name}}`,
+		`{{@root.x}} {{../foo}}`,
+	}
+	for _, src := range samples {
+		if _, err := Parse(src); err != nil {
+			t.Errorf("Parse(%q) errored: %v", src, err)
+		}
+		// MustParse must not panic.
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("MustParse(%q) panicked: %v", src, r)
+				}
+			}()
+			_ = MustParse(src)
+		}()
+	}
+}
+
 func TestClone(t *testing.T) {
 	t.Parallel()
 

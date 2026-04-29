@@ -17,6 +17,7 @@ type Template struct {
 	program  *ast.Program
 	helpers  map[string]reflect.Value
 	partials map[string]*partial
+	report   ParseReport // populated by ParseWithOptions when the visitor runs
 	mutex    sync.RWMutex // protects helpers and partials
 }
 
@@ -39,6 +40,49 @@ func Parse(source string) (*Template, error) {
 	}
 
 	return tpl, nil
+}
+
+// ParseWithOptions parses source under the given options.
+//
+// On success returns a *Template carrying a ParseReport (retrievable via
+// (*Template).Report()). On a budget breach returns *BudgetExceededError.
+// On a capability violation returns *CapabilityError. Otherwise returns
+// whatever the parser returns (syntax error).
+//
+// A zero-valued ParseOptions{} is documented as legacy behaviour: the
+// capability/budget visitor is not invoked and Report() returns the zero
+// report.
+func ParseWithOptions(source string, opts ParseOptions) (*Template, error) {
+	tpl := newTemplate(source)
+	if err := tpl.parse(); err != nil {
+		return nil, err
+	}
+	// Skip the visitor entirely on the legacy/zero-options path so the
+	// opt-out benchmark remains identical to legacy Parse.
+	if opts.Mode == ModeFull &&
+		!opts.Capabilities.If &&
+		!opts.Capabilities.Iteration &&
+		!opts.Capabilities.Partials &&
+		!opts.Budget.Enforced {
+		return tpl, nil
+	}
+	report, err := runCapVisitor(tpl.program, opts)
+	if err != nil {
+		return nil, err
+	}
+	tpl.report = report
+	return tpl, nil
+}
+
+// Report returns a copy of the parse report attached to a successfully
+// parsed template. Templates parsed via the legacy Parse / MustParse /
+// ParseFile entry points carry the zero-valued report.
+func (tpl *Template) Report() ParseReport {
+	out := ParseReport{Substitutions: tpl.report.Substitutions}
+	if len(tpl.report.Constructs) > 0 {
+		out.Constructs = append([]string(nil), tpl.report.Constructs...)
+	}
+	return out
 }
 
 // MustParse instanciates a template by parsing given source. It panics on error.

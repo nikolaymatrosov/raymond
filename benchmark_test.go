@@ -299,6 +299,46 @@ func BenchmarkSubExpression(b *testing.B) {
 	}
 }
 
+// representativeTemplate mixes ~50 substitutions with an #if and an #each
+// — used by BenchmarkParseWithOptions_* to compare visitor-on vs.
+// visitor-off costs (Constitution Principle V, contract C9).
+var representativeTemplate = func() string {
+	s := "<h1>{{title}}</h1>\n"
+	for i := 0; i < 48; i++ {
+		s += "{{x}}"
+	}
+	s += "\n{{#if cond}}{{a}}{{/if}}\n{{#each xs}}{{this}}{{/each}}"
+	return s
+}()
+
+// BenchmarkParseWithOptions_Full measures the opt-in zero-options path,
+// which MUST not enter the visitor and so should track legacy Parse cost.
+func BenchmarkParseWithOptions_Full(b *testing.B) {
+	src := representativeTemplate
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := ParseWithOptions(src, ParseOptions{}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkParseWithOptions_Granular measures the visitor-on path with
+// every toggle enabled and a 1 MiB substitution budget.
+func BenchmarkParseWithOptions_Granular(b *testing.B) {
+	src := representativeTemplate
+	opts := ParseOptions{
+		Capabilities: Capabilities{If: true, Iteration: true, Partials: true},
+		Budget:       Budget{MaxSubstitutions: 1 << 20, Enforced: true},
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := ParseWithOptions(src, opts); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkVariables(b *testing.B) {
 	source := `Hello {{name}}! You have {{count}} new messages.`
 

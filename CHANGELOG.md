@@ -2,6 +2,13 @@
 
 ### HEAD
 
+- [IMPROVEMENT] Add opt-in `ParseWithOptions(source, ParseOptions)` API for
+  parse-time enforcement of a substitution-count budget and a capability
+  mode. New exported identifiers: `Mode`, `ModeFull`, `ModeSimple`,
+  `Capabilities`, `Budget`, `ParseOptions`, `ParseReport`,
+  `BudgetExceededError`, `CapabilityError`, `ParseWithOptions`,
+  `(*Template).Report`. Existing `Parse`, `MustParse`, `ParseFile`, and
+  `Render` are unchanged.
 - [IMPROVEMENT] Add `RemoveHelper` and `RemoveAllHelpers` functions
 
 ### Raymond 2.0.2 _(March 22, 2018)_
