@@ -1,7 +1,9 @@
 package raymond
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"reflect"
 	"runtime"
@@ -265,6 +267,140 @@ func (tpl *Template) ExecWith(ctx interface{}, privData *DataFrame) (result stri
 
 	// named return values
 	return
+}
+
+// ExecTo evaluates the template with the given context and streams the
+// rendered bytes into w as they are produced. It is equivalent to
+// ExecToWithOptions(w, ctx, nil, RenderOptions{}). No output budget is
+// enforced; a destination write failure is surfaced as
+// *RenderDestinationError.
+func (tpl *Template) ExecTo(w io.Writer, ctx interface{}) error {
+	return tpl.ExecToWithOptions(w, ctx, nil, RenderOptions{})
+}
+
+// ExecToWith evaluates the template with the given context and private
+// data frame and streams the rendered bytes into w as they are
+// produced. It is equivalent to
+// ExecToWithOptions(w, ctx, privData, RenderOptions{}).
+func (tpl *Template) ExecToWith(w io.Writer, ctx interface{}, privData *DataFrame) error {
+	return tpl.ExecToWithOptions(w, ctx, privData, RenderOptions{})
+}
+
+// ExecToWithOptions evaluates the template with the given context and
+// private data frame and streams the rendered bytes into w. When
+// opts.Enforced is true, opts.MaxOutputBytes is a strict upper bound
+// on the cumulative number of bytes written: bytes-written greater
+// than the limit aborts with *RenderBudgetExceededError; bytes-written
+// equal to the limit succeeds (exact-fit). Bytes emitted by helpers,
+// partials, inline partials, and nested template invocations all count
+// against the same single budget (FR-008). Each call carries its own
+// budget state; concurrent renders of the same *Template are
+// independent (FR-010). A destination Write failure or short write is
+// surfaced as *RenderDestinationError, which wraps the underlying
+// cause for errors.Is / errors.As. The zero RenderOptions value is
+// legacy behaviour: bytes flow to w unmodified, identical to ExecTo
+// without options (FR-007); a zero MaxOutputBytes with Enforced is
+// legal and means "any non-empty output fails" (FR-011).
+func (tpl *Template) ExecToWithOptions(w io.Writer, ctx interface{}, privData *DataFrame, opts RenderOptions) (err error) {
+	if opts.Enforced && opts.MaxOutputBytes < 0 {
+		return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
+	}
+
+	defer execToErrRecover(&err, opts)
+
+	if err = tpl.parse(); err != nil {
+		return err
+	}
+
+	var dst io.Writer = w
+	var capped *cappedWriter
+	if opts.Enforced {
+		capped = newCappedWriter(w, opts.MaxOutputBytes)
+		dst = capped
+	}
+
+	v := newEvalVisitor(tpl, ctx, privData)
+	v.out = capped
+
+	for _, n := range tpl.program.Body {
+		str := Str(n.Accept(v))
+		if str == "" {
+			continue
+		}
+
+		// When a budget is in force, allocate at most the bytes that
+		// still fit so peak in-process buffer memory stays bounded by
+		// limit + O(1) (SC-001) even for very large literal/helper
+		// outputs.
+		if capped != nil {
+			remaining := opts.MaxOutputBytes - capped.written
+			if remaining < 0 {
+				remaining = 0
+			}
+			if int64(len(str)) > remaining {
+				if remaining > 0 {
+					prefix := []byte(str[:remaining])
+					nW, werr := w.Write(prefix)
+					if nW < 0 {
+						nW = 0
+					}
+					capped.written += int64(nW)
+					if werr != nil {
+						return &RenderDestinationError{Cause: werr}
+					}
+					if nW < len(prefix) {
+						return &RenderDestinationError{Cause: io.ErrShortWrite}
+					}
+				}
+				return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
+			}
+		}
+
+		p := []byte(str)
+		nWritten, werr := dst.Write(p)
+		if nWritten < 0 {
+			nWritten = 0
+		}
+		if capped != nil {
+			v.committed = capped.written
+		} else {
+			v.committed += int64(nWritten)
+		}
+		if werr != nil {
+			if errors.Is(werr, errBudgetOverflow) {
+				return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
+			}
+			return &RenderDestinationError{Cause: werr}
+		}
+		if nWritten < len(p) {
+			return &RenderDestinationError{Cause: io.ErrShortWrite}
+		}
+	}
+	return nil
+}
+
+// execToErrRecover handles panics from the evaluator during a streaming
+// render. It mirrors errRecover but additionally converts the
+// errBudgetOverflow sentinel into a *RenderBudgetExceededError so the
+// sentinel never escapes to callers, and wraps writer errors that
+// surfaced via errPanic into a *RenderDestinationError.
+func execToErrRecover(errp *error, opts RenderOptions) {
+	e := recover()
+	if e == nil {
+		return
+	}
+	switch err := e.(type) {
+	case runtime.Error:
+		panic(e)
+	case error:
+		if errors.Is(err, errBudgetOverflow) {
+			*errp = &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
+			return
+		}
+		*errp = err
+	default:
+		panic(e)
+	}
 }
 
 // errRecover recovers evaluation panic

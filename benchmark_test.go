@@ -354,3 +354,45 @@ func BenchmarkVariables(b *testing.B) {
 		tpl.MustExec(ctx)
 	}
 }
+
+// BenchmarkExec_NoBudget_Legacy measures the legacy Exec path with no
+// options at all. It is the pre-feature baseline for SC-005 (the
+// legacy path must show no measurable regression versus pre-feature).
+func BenchmarkExec_NoBudget_Legacy(b *testing.B) {
+	source := `Hello {{name}}! {{#each items}}{{this}}/{{/each}}`
+	ctx := map[string]interface{}{
+		"name":  "Alice",
+		"items": []string{"a", "b", "c", "d", "e", "f", "g", "h"},
+	}
+	tpl := MustParse(source)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tpl.MustExec(ctx)
+	}
+}
+
+// BenchmarkExecTo_WithBudget measures the streaming path with a budget
+// configured. Used together with BenchmarkExec_NoBudget_Legacy to gate
+// SC-004 (within 10% of the same render with no budget).
+func BenchmarkExecTo_WithBudget(b *testing.B) {
+	source := `Hello {{name}}! {{#each items}}{{this}}/{{/each}}`
+	ctx := map[string]interface{}{
+		"name":  "Alice",
+		"items": []string{"a", "b", "c", "d", "e", "f", "g", "h"},
+	}
+	tpl := MustParse(source)
+	opts := RenderOptions{MaxOutputBytes: 1 << 20, Enforced: true}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := tpl.ExecToWithOptions(discardWriter{}, ctx, nil, opts); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// discardWriter is a benchmark-local io.Writer that drops everything.
+// We avoid a dependency on `io.Discard` here so the file's import set
+// stays minimal.
+type discardWriter struct{}
+
+func (discardWriter) Write(p []byte) (int, error) { return len(p), nil }

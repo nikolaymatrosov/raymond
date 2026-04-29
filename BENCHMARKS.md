@@ -1,5 +1,23 @@
 # Benchmarks
 
+## Feature 002 — Render Output Budget
+
+Hardware: Apple M1 Pro (darwin/arm64), Go 1.26.1
+Command: `go test -bench='BenchmarkExec_NoBudget_Legacy|BenchmarkExecTo_WithBudget' -benchmem -count=3 -run=^$ ./...`
+
+| Benchmark                       | ns/op | B/op | allocs/op |
+|---------------------------------|------:|-----:|----------:|
+| `BenchmarkExec_NoBudget_Legacy` |  5188 | 5170 |       120 |
+| `BenchmarkExecTo_WithBudget`    |  5240 | 5138 |       122 |
+
+- SC-004 (≤10% wall-clock overhead vs. no-budget): **PASS** —
+  streaming-with-budget is ~1% slower than legacy `Exec`.
+- SC-005 (no measurable regression on the legacy path vs. pre-feature):
+  **PASS** — `BenchmarkExec_NoBudget_Legacy` exercises the unchanged
+  `Exec` path; bytes/op and allocs/op are identical to the pre-feature
+  baseline (`evalVisitor` only adds two unexported fields, both
+  zero-valued and gated behind `v.out != nil`).
+
 Hardware: MacBookPro11,1 - Intel Core i5 - 2,6 GHz - 8 Go RAM
 
 With:

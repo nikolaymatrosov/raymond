@@ -22,6 +22,19 @@ var (
 type evalVisitor struct {
 	tpl *Template
 
+	// out, when non-nil, indicates a streaming exec (ExecTo* family).
+	// The capped writer counts bytes delivered to the operator's
+	// destination. Nil on the legacy Exec / ExecWith path so every
+	// budget-related branch can guard with `v.out != nil` and execute
+	// identical code paths to today.
+	out *cappedWriter
+
+	// committed mirrors out.written at sub-program boundaries so that
+	// nested concatenations can short-circuit the moment
+	// committed + len(currentResult) would exceed the limit. Zero on
+	// the legacy path.
+	committed int64
+
 	// contexts stack
 	ctx []reflect.Value
 
@@ -783,6 +796,15 @@ func (v *evalVisitor) VisitProgram(node *ast.Program) interface{} {
 		if str := Str(n.Accept(v)); str != "" {
 			if _, err := buf.Write([]byte(str)); err != nil {
 				v.errPanic(err)
+			}
+			// Streaming-render short-circuit: if the bytes already
+			// committed to the destination plus the bytes accumulated
+			// in this sub-program would exceed the budget, abort now
+			// so peak in-process buffer memory stays bounded by
+			// limit + O(1) (SC-001). Legacy renders (v.out == nil)
+			// skip this branch entirely.
+			if v.out != nil && v.committed+int64(buf.Len()) > v.out.limit {
+				panic(errBudgetOverflow)
 			}
 		}
 	}

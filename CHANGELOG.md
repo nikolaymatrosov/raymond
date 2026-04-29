@@ -1,5 +1,18 @@
 # Raymond Changelog
 
+### Unreleased
+
+- [IMPROVEMENT] Feature 002 — Render Output Budget: opt-in render output
+  budget via `(*Template).ExecTo`, `(*Template).ExecToWith`, and
+  `(*Template).ExecToWithOptions`, plus a `RenderOptions` struct
+  (`MaxOutputBytes`, `Enforced`). New typed errors
+  `RenderBudgetExceededError`, `RenderDestinationError`; both are
+  distinguishable via `errors.As`, and `RenderDestinationError`
+  unwraps to the underlying writer cause (e.g. `io.ErrShortWrite`).
+  Peak in-process buffer memory on overflow is bounded by
+  `MaxOutputBytes + O(1)`. Existing `Exec` / `MustExec` / `ExecWith`
+  / `Render` / `MustRender` are byte-for-byte unchanged.
+
 ### HEAD
 
 - [IMPROVEMENT] Add opt-in `ParseWithOptions(source, ParseOptions)` API for
