@@ -121,7 +121,7 @@ improve (`Complex` −13%, `Partial` −8%); several regress (`Arguments` +107%,
 > Core i5) against the new M1 Pro runs — different hardware, so the deltas were
 > meaningless. The table above corrects that with a same-machine comparison.
 
-### Post-rewrite optimization pass _(2026-06-11)_
+### Optimization pass 1 — helper/path allocations _(2026-06-11)_
 
 The mixed result above prompted an allocation-focused pass over the hot helper
 and path code. Three behaviour-preserving changes (full test suite green):
@@ -162,11 +162,60 @@ No benchmark regressed in wall-clock; every one allocates less or equal. The one
 byte-size uptick (`Arguments` +1.7%) is the `make(map, n)` size hint over-sizing
 for that template's four same-key hash pairs — a deliberate trade for −6 allocs.
 
-The remaining gap to the pre-rewrite engine on helper-heavy templates is
-structural: legacy helpers still round-trip `Value → interface{} → reflect.Value`
-through the public `Options` API. Closing it would mean storing `Value`-typed
-params/hash in `Options` and converting lazily — left as a follow-up since it
-touches a stable exported type.
+### Optimization pass 2 — per-execute & empty-collection allocations _(2026-06-11)_
+
+A second profiling round (by `alloc_objects`) found allocations paid on every
+execute or for empty collections. Four behaviour-preserving changes:
+
+- `rawHash` returns `nil` for an empty/absent hash instead of allocating an empty
+  map — every legacy helper call without a hash paid for one (7.8% of
+  `BenchmarkSubExpression` allocations).
+- the lambda-call `Options` no longer preallocates an empty hash map.
+- `exprFunc` (a per-execute memo map) is allocated lazily on first write; most
+  templates never touch it.
+- the `helperSeam`/`partialSeam` resolution closures are memoized per
+  `Template`/`Compiled` via `sync.Once` instead of rebuilt on every
+  `MustExec`/`Execute`. They resolve helpers and partials dynamically, so
+  caching them is behaviour-identical (verified race-clean under concurrent
+  execute).
+
+Pass 1 → pass 2, same M1 Pro, `-count=6`:
+
+| Benchmark                   | Δ time | Δ B/op | Δ allocs |
+|-----------------------------|-------:|-------:|---------:|
+| `BenchmarkArguments`        |  ~     |  −2.4% |   −9.4%  |
+| `BenchmarkArrayEach`        |  ~     |  −2.5% |   −5.3%  |
+| `BenchmarkArrayMustache`    |  −5.8% |  −2.8% |   −5.9%  |
+| `BenchmarkComplex`          |  ~     |  −0.6% |   −2.0%  |
+| `BenchmarkData`             |  ~     |  −2.3% |   −4.1%  |
+| `BenchmarkDepth1`           |  ~     |  −2.6% |   −5.4%  |
+| `BenchmarkDepth2`           |  ~     |  −1.2% |   −2.3%  |
+| `BenchmarkObjectMustache`   |  −4.1% |  −7.5% |  −12.5%  |
+| `BenchmarkObject`           |  −8.2% |  −5.9% |  −10.3%  |
+| `BenchmarkPartialRecursion` |  ~     |  −2.3% |   −4.7%  |
+| `BenchmarkPartial`          |  ~     |  −2.7% |   −5.0%  |
+| `BenchmarkPath`             |  ~     |  −7.4% |   −7.3%  |
+| `BenchmarkString`           |  ~     | −13.9% |  −33.3%  |
+| `BenchmarkSubExpression`    | −12.4% | −12.5% |  −18.5%  |
+| `BenchmarkVariables`        |  −5.8% | −10.0% |  −15.0%  |
+| _geomean_                   | −3.78% | −4.29% |  −8.20%  |
+
+Every benchmark allocates strictly less. Combined, the two passes move the
+streaming core from roughly +14% wall-clock / −21% allocs versus the original
+raymond down to roughly +9–10% wall-clock / −27% allocs — i.e. the engine now
+allocates well under the original, with the remaining wall-clock gap concentrated
+in the reflection-heavy helper and path code.
+
+The remaining structural costs (each a larger, riskier change, left as
+follow-ups):
+
+1. a `reflectData` heap allocation per map-node lookup (the bulk of
+   `BenchmarkPath`) — would need the `reflect.Value` stored in `Value` or pooled;
+2. the legacy `Value → interface{} → reflect.Value` round-trip through the public
+   `Options` API on every reflected helper call (`BenchmarkArguments`) — would
+   need `Value`-typed lazy params/hash on the exported `Options` type;
+3. a `&legacyHelper` allocated on every helper-name resolution — would need a
+   per-template resolved-helper cache.
 
 ### Reproducing these numbers
 
@@ -181,10 +230,13 @@ variance. Summarize with [`benchstat`](https://pkg.go.dev/golang.org/x/perf/cmd/
     go install golang.org/x/perf/cmd/benchstat@latest
     benchstat new.txt
 
-To regenerate the "baseline" column and the deltas, capture the pre-rewrite
-commit, then diff the two runs:
+To regenerate the "baseline" column and the deltas, check out the true
+pre-rewrite fork point — the `baseline` branch — then diff the two runs. (The
+entire `003-streaming-core` branch is the rewrite; the cutover to the streaming
+engine happened at `24a7ec6`, so any commit on the branch is already streaming.
+`baseline` marks where the package was forked, before any of that work.)
 
-    git checkout 77ecb99~1                                      # before the streaming-core rewrite
+    git checkout baseline                                       # original raymond, pre-rewrite
     go test -bench . -benchmem -run '^$' -count=6 . | tee old.txt
     git checkout 003-streaming-core
     go test -bench . -benchmem -run '^$' -count=6 . | tee new.txt
