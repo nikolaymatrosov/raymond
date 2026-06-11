@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/aymerick/raymond/ast"
@@ -255,19 +256,15 @@ func (tpl *Template) ExecWith(ctx interface{}, privData *DataFrame) (result stri
 	defer errRecover(&err)
 
 	// parses template if necessary
-	err = tpl.parse()
-	if err != nil {
+	if err = tpl.parse(); err != nil {
 		return
 	}
 
-	// setup visitor
-	v := newEvalVisitor(tpl, ctx, privData)
-
-	// visit AST
-	result, _ = tpl.program.Accept(v).(string)
-
-	// named return values
-	return
+	var sb strings.Builder
+	if err = tpl.execute(context.Background(), &sb, nil, ctx, privData, Limits{}); err != nil {
+		return "", err
+	}
+	return sb.String(), nil
 }
 
 // ExecTo evaluates the template with the given context and streams the
@@ -307,77 +304,32 @@ func (tpl *Template) ExecToWithOptions(w io.Writer, ctx interface{}, privData *D
 		return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
 	}
 
-	defer execToErrRecover(&err, opts)
+	defer errRecover(&err)
 
 	if err = tpl.parse(); err != nil {
 		return err
 	}
 
-	var dst io.Writer = w
+	dw := &destWriter{w: w}
+	var sink io.Writer = dw
 	var capped *cappedWriter
 	if opts.Enforced {
-		capped = newCappedWriter(w, opts.MaxOutputBytes)
-		dst = capped
+		capped = newCappedWriter(dw, opts.MaxOutputBytes)
+		sink = capped
 	}
 
-	v := newEvalVisitor(tpl, ctx, privData)
-	v.out = capped
-
-	for _, n := range tpl.program.Body {
-		str := Str(n.Accept(v))
-		if str == "" {
-			continue
-		}
-
-		// When a budget is in force, allocate at most the bytes that
-		// still fit so peak in-process buffer memory stays bounded by
-		// limit + O(1) (SC-001) even for very large literal/helper
-		// outputs.
-		if capped != nil {
-			remaining := opts.MaxOutputBytes - capped.written
-			if remaining < 0 {
-				remaining = 0
-			}
-			if int64(len(str)) > remaining {
-				if remaining > 0 {
-					prefix := []byte(str[:remaining])
-					nW, werr := w.Write(prefix)
-					if nW < 0 {
-						nW = 0
-					}
-					capped.written += int64(nW)
-					if werr != nil {
-						return &RenderDestinationError{Cause: werr}
-					}
-					if nW < len(prefix) {
-						return &RenderDestinationError{Cause: io.ErrShortWrite}
-					}
-				}
-				return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
-			}
-		}
-
-		p := []byte(str)
-		nWritten, werr := dst.Write(p)
-		if nWritten < 0 {
-			nWritten = 0
-		}
-		if capped != nil {
-			v.committed = capped.written
-		} else {
-			v.committed += int64(nWritten)
-		}
-		if werr != nil {
-			if errors.Is(werr, errBudgetOverflow) {
-				return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
-			}
-			return &RenderDestinationError{Cause: werr}
-		}
-		if nWritten < len(p) {
-			return &RenderDestinationError{Cause: io.ErrShortWrite}
-		}
+	rerr := tpl.execute(context.Background(), sink, capped, ctx, privData, Limits{})
+	if rerr == nil {
+		return nil
 	}
-	return nil
+	if errors.Is(rerr, errBudgetOverflow) {
+		return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
+	}
+	var de *destError
+	if errors.As(rerr, &de) {
+		return &RenderDestinationError{Cause: de.cause}
+	}
+	return rerr
 }
 
 // execute drives the streaming engine for this template. cap, when
@@ -441,30 +393,6 @@ func (tpl *Template) partialSeam() func(string) (*ast.Program, error) {
 			return nil, perr
 		}
 		return ptpl.program, nil
-	}
-}
-
-// execToErrRecover handles panics from the evaluator during a streaming
-// render. It mirrors errRecover but additionally converts the
-// errBudgetOverflow sentinel into a *RenderBudgetExceededError so the
-// sentinel never escapes to callers, and wraps writer errors that
-// surfaced via errPanic into a *RenderDestinationError.
-func execToErrRecover(errp *error, opts RenderOptions) {
-	e := recover()
-	if e == nil {
-		return
-	}
-	switch err := e.(type) {
-	case runtime.Error:
-		panic(e)
-	case error:
-		if errors.Is(err, errBudgetOverflow) {
-			*errp = &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
-			return
-		}
-		*errp = err
-	default:
-		panic(e)
 	}
 }
 

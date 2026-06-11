@@ -60,6 +60,8 @@ func (c *Compiled) RegisterHelper(name string, h Helper) {
 }
 
 // RegisterPartial registers a compiled partial on this template.
+// Helpers and partials referenced inside a partial resolve against the
+// template that started the render, matching the legacy engine.
 func (c *Compiled) RegisterPartial(name string, p *Compiled) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -81,7 +83,9 @@ func (c *Compiled) ExecuteData(ctx context.Context, w io.Writer, data Data) erro
 	return c.exec(ctx, w, mapValue(data, true, data))
 }
 
-func (c *Compiled) exec(tctx context.Context, w io.Writer, root Value) error {
+func (c *Compiled) exec(tctx context.Context, w io.Writer, root Value) (err error) {
+	defer errRecover(&err)
+
 	if tctx == nil {
 		tctx = context.Background()
 	}
@@ -106,7 +110,7 @@ func (c *Compiled) exec(tctx context.Context, w io.Writer, root Value) error {
 		exprFunc:     make(map[*ast.Expression]bool),
 	}
 
-	err := s.renderProgram(c.program)
+	err = s.renderProgram(c.program)
 	if err != nil && errors.Is(err, errBudgetOverflow) {
 		return newLimitError("output bytes", c.limits.MaxOutputBytes, ErrOutputLimit)
 	}

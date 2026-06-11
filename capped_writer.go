@@ -82,3 +82,42 @@ func (cw *cappedWriter) Write(p []byte) (int, error) {
 	}
 	return n, errBudgetOverflow
 }
+
+// WriteString mirrors Write's state machine while slicing the string
+// BEFORE any []byte conversion, so only bytes that fit are copied.
+func (cw *cappedWriter) WriteString(s string) (int, error) {
+	if len(s) == 0 {
+		return 0, nil
+	}
+
+	remaining := cw.limit - cw.written
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	if int64(len(s)) <= remaining {
+		n, err := io.WriteString(cw.dst, s)
+		if n < 0 {
+			n = 0
+		}
+		cw.written += int64(n)
+		return n, err
+	}
+
+	if remaining == 0 {
+		return 0, errBudgetOverflow
+	}
+
+	n, err := io.WriteString(cw.dst, s[:remaining])
+	if n < 0 {
+		n = 0
+	}
+	cw.written += int64(n)
+	if err != nil {
+		return n, err
+	}
+	if int64(n) < remaining {
+		return n, io.ErrShortWrite
+	}
+	return n, errBudgetOverflow
+}
