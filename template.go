@@ -153,6 +153,11 @@ func (tpl *Template) findHelper(name string) reflect.Value {
 
 // RegisterHelper registers a helper for that template.
 func (tpl *Template) RegisterHelper(name string, helper interface{}) {
+	switch helper.(type) {
+	case Helper, func(*HelperCall) error:
+		panic(fmt.Sprintf("Streaming helpers are not supported on Template; register %s globally with RegisterHelper or on a Compiled template", name))
+	}
+
 	tpl.mutex.Lock()
 	defer tpl.mutex.Unlock()
 

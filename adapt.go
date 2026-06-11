@@ -152,21 +152,37 @@ func lookupStructTag(ctx reflect.Value, name string) reflect.Value {
 	return reflect.Value{}
 }
 
+// exportedFieldIndices lists exported struct fields in declaration
+// order (eachHelper's struct iteration rule).
+func (rd *reflectData) exportedFieldIndices() []int {
+	var exported []int
+	for i := 0; i < rd.rv.NumField(); i++ {
+		if tField := rd.rv.Type().Field(i); tField.PkgPath == "" {
+			exported = append(exported, i)
+		}
+	}
+	return exported
+}
+
 // List over the same container. For structs Len is the exported field
 // count, matching the legacy eachHelper's len(exportedFields).
 func (rd *reflectData) Len() int {
 	if rd.rv.Kind() == reflect.Struct {
-		n := 0
-		for i := 0; i < rd.rv.NumField(); i++ {
-			if tField := rd.rv.Type().Field(i); tField.PkgPath == "" {
-				n++
-			}
-		}
-		return n
+		return len(rd.exportedFieldIndices())
 	}
 	return rd.rv.Len()
 }
-func (rd *reflectData) Index(i int) Value { return adaptReflectValue(rd.rv.Index(i)) }
+
+func (rd *reflectData) Index(i int) Value {
+	if rd.rv.Kind() == reflect.Struct {
+		fields := rd.exportedFieldIndices()
+		if i < 0 || i >= len(fields) {
+			return Value{}
+		}
+		return adaptReflectValue(rd.rv.Field(fields[i]))
+	}
+	return adaptReflectValue(rd.rv.Index(i))
+}
 
 // Each ports eachHelper's container branches (helper.go:331-374):
 // slices key=nil, maps in MapKeys order, structs exported fields in
@@ -188,12 +204,7 @@ func (rd *reflectData) Each(fn func(i int, key interface{}, val Value) error) er
 			}
 		}
 	case reflect.Struct:
-		var exported []int
-		for i := 0; i < val.NumField(); i++ {
-			if tField := val.Type().Field(i); tField.PkgPath == "" {
-				exported = append(exported, i)
-			}
-		}
+		exported := rd.exportedFieldIndices()
 		for i, fieldIndex := range exported {
 			key := val.Type().Field(fieldIndex).Name
 			if err := fn(i, key, adaptReflectValue(val.Field(fieldIndex))); err != nil {

@@ -136,6 +136,16 @@ func TestAdapt_MapAndSliceLookup(t *testing.T) {
 	}
 }
 
+func TestTemplateRegisterHelper_RejectsStreaming(t *testing.T) {
+	tpl := MustParse("{{x}}")
+	defer func() {
+		if recover() == nil {
+			t.Error("registering a streaming helper on a Template must panic")
+		}
+	}()
+	tpl.RegisterHelper("s", HelperFunc(func(hc *HelperCall) error { return nil }))
+}
+
 func TestAdapt_PointerTruthIndirects(t *testing.T) {
 	empty := ""
 	full := "x"
