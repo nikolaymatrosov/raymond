@@ -82,6 +82,40 @@ func callLegacyFunc(s *state, name string, funcVal reflect.Value, opts *Options)
 	return adaptReflectValue(out), nil
 }
 
+// legacyHelper adapts a reflected legacy helper func to coreHelper.
+type legacyHelper struct {
+	name string
+	fn   reflect.Value
+}
+
+func (lh *legacyHelper) callCore(hc *HelperCall) (Value, error) {
+	opts := &Options{
+		s:      hc.s,
+		params: rawParams(hc.params),
+		hash:   rawHash(hc.hash),
+	}
+	return callLegacyFunc(hc.s, lh.name, lh.fn, opts)
+}
+
+func rawParams(params []Value) []interface{} {
+	if params == nil {
+		return nil
+	}
+	out := make([]interface{}, len(params))
+	for i, p := range params {
+		out[i] = p.Interface()
+	}
+	return out
+}
+
+func rawHash(hash map[string]Value) map[string]interface{} {
+	out := make(map[string]interface{})
+	for k, v := range hash {
+		out[k] = v.Interface()
+	}
+	return out
+}
+
 // ensureValidHelperErr is ensureValidHelper (helper.go:76-88) as an
 // error for exec-time lambda validation (evalFieldFunc runs it before
 // building options, eval.go:388); registration keeps the panic.

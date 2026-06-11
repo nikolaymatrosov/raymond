@@ -15,6 +15,12 @@ const ctxCheckInterval = 1024
 // helpers pay proportionally.
 const writeCostShift = 8
 
+// coreHelper is the engine-internal helper shape; legacy and streaming
+// helpers both wrap into it.
+type coreHelper interface {
+	callCore(hc *HelperCall) (Value, error)
+}
+
 // state carries all mutable data of one render.
 type state struct {
 	tctx context.Context
@@ -26,6 +32,9 @@ type state struct {
 	steps        int64
 	subs         int64
 	nextCtxCheck int64
+
+	helpers  func(name string) coreHelper
+	partials func(name string) (*ast.Program, error)
 
 	ctxStack    []Value
 	frame       *DataFrame
