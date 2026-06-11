@@ -9,8 +9,13 @@ import (
 
 // Options represents the options argument provided to helpers and context functions.
 type Options struct {
-	// evaluation visitor
+	// evaluation visitor (old engine; removed with eval.go in a later task)
 	eval *evalVisitor
+
+	// new-engine state and deferred error (record-and-continue for
+	// Fn()'s missing error channel); nil/zero while the old engine runs
+	s   *state
+	err error
 
 	// params
 	params []interface{}
