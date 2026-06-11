@@ -23,11 +23,10 @@ const (
 )
 
 // callable is a function-shaped value (lambda, method, legacy helper)
-// invocable by the core. Implemented in adapt_helpers.go. NOTE: in this
-// task it has ONLY helperName(); a later task adds the call method once
-// the exec state type exists.
+// invocable by the core. Implemented in adapt_helpers.go.
 type callable interface {
 	helperName() string
+	call(s *state, opts *Options) (Value, error)
 }
 
 // Data is the closed lookup interface the core resolves paths against.

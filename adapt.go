@@ -188,3 +188,7 @@ type legacyFunc struct {
 }
 
 func (l *legacyFunc) helperName() string { return l.name }
+
+func (l *legacyFunc) call(s *state, opts *Options) (Value, error) {
+	return Value{}, s.errorf("legacy bridge not wired")
+}
