@@ -206,16 +206,50 @@ raymond down to roughly +9–10% wall-clock / −27% allocs — i.e. the engine 
 allocates well under the original, with the remaining wall-clock gap concentrated
 in the reflection-heavy helper and path code.
 
-The remaining structural costs (each a larger, riskier change, left as
-follow-ups):
+### Optimization pass 3 — the three structural follow-ups _(2026-06-11)_
 
-1. a `reflectData` heap allocation per map-node lookup (the bulk of
-   `BenchmarkPath`) — would need the `reflect.Value` stored in `Value` or pooled;
-2. the legacy `Value → interface{} → reflect.Value` round-trip through the public
-   `Options` API on every reflected helper call (`BenchmarkArguments`) — would
-   need `Value`-typed lazy params/hash on the exported `Options` type;
-3. a `&legacyHelper` allocated on every helper-name resolution — would need a
-   per-template resolved-helper cache.
+The three structural costs flagged after pass 2 were each attempted. Two landed
+cleanly; the third was partly addressed by a better adjacent fix.
+
+1. **Path lookup.** `reflectData.Lookup` ran a method-existence check before
+   every field resolution, and that check always called `MethodByName` twice plus
+   `strings.Title(name)` (a fresh allocation) even for method-less types like
+   `map[string]interface{}`. Guarding on `reflect.Value.NumMethod()==0` skips it.
+   This turned out to dwarf the originally-scoped `reflectData` removal, so the
+   latter (which would need a `reflect.Value` stored in `Value`, growing every
+   `[]Value`) was **deferred** as high-risk / low-reward.
+2. **Arguments / `Options`.** `Options` now carries the `Value`-typed hash and
+   converts it to the interface-typed map lazily on first `Hash()` access, so a
+   helper that ignores its hash pays nothing for `rawHash`.
+3. **Helper resolution.** Template- and `Compiled`-local helper wrappers are
+   memoized (they are add-only, so never stale). Globals are deliberately not
+   cached — `RemoveHelper`/`RemoveAllHelpers` could invalidate them.
+
+Pass 2 → pass 3, same M1 Pro, `-count=6`:
+
+| Benchmark                   | Δ time | Δ B/op | Δ allocs |
+|-----------------------------|-------:|-------:|---------:|
+| `BenchmarkArguments`        | −16.2% |  −1.7% |  −17.2%  |
+| `BenchmarkArrayEach`        |  −8.2% |  −1.6% |   −9.3%  |
+| `BenchmarkArrayMustache`    | −11.7% |  −1.7% |  −10.4%  |
+| `BenchmarkComplex`          | −10.6% |  −2.7% |  −11.2%  |
+| `BenchmarkData`             | −12.1% |  −3.3% |  −12.9%  |
+| `BenchmarkDepth1`           |  −3.9% |  −1.6% |   −9.4%  |
+| `BenchmarkDepth2`           | −10.9% |  −1.6% |  −10.4%  |
+| `BenchmarkObjectMustache`   | −19.3% |  −3.3% |  −14.3%  |
+| `BenchmarkObject`           | −17.9% |  −2.5% |  −11.5%  |
+| `BenchmarkPartialRecursion` |  −9.1% |  −1.4% |   −9.8%  |
+| `BenchmarkPartial`          | −14.5% |  −3.0% |  −12.3%  |
+| `BenchmarkPath`             | −18.3% | −10.4% |  −23.7%  |
+| `BenchmarkString`           |  ~     |  ~     |   ~      |
+| `BenchmarkSubExpression`    |  ~     |  −7.8% |   −9.1%  |
+| `BenchmarkVariables`        |  −9.3% |  −3.3% |  −11.8%  |
+| _geomean_                   | −8.93% | −3.11% |  −9.61%  |
+
+This is the first pass to move **wall-clock** broadly (the `NumMethod` skip helps
+every reflection-based field lookup). Across all three passes the streaming core
+now sits at roughly **parity-to-slightly-slower** wall-clock versus the original
+raymond on most templates (a few are faster), while allocating well below it.
 
 ### Reproducing these numbers
 
