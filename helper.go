@@ -15,7 +15,11 @@ type Options struct {
 
 	// params
 	params []interface{}
-	hash   map[string]interface{}
+	// hash is the interface-typed hash exposed to legacy helpers. It is
+	// built lazily from hashV on the first Hash() call, so a helper that
+	// never reads its hash pays nothing for the conversion.
+	hash  map[string]interface{}
+	hashV map[string]Value
 }
 
 // helperEntry holds either a legacy reflected helper or a streaming one.
@@ -144,16 +148,20 @@ func (options *Options) Ctx() interface{} {
 
 // HashProp returns hash property.
 func (options *Options) HashProp(name string) interface{} {
-	return options.hash[name]
+	return options.Hash()[name]
 }
 
 // HashStr returns string representation of hash property.
 func (options *Options) HashStr(name string) string {
-	return Str(options.hash[name])
+	return Str(options.Hash()[name])
 }
 
-// Hash returns entire hash.
+// Hash returns entire hash. The interface-typed map is built lazily from
+// hashV on first access so helpers that ignore their hash pay nothing.
 func (options *Options) Hash() map[string]interface{} {
+	if options.hash == nil && options.hashV != nil {
+		options.hash = rawHash(options.hashV)
+	}
 	return options.hash
 }
 

@@ -92,7 +92,7 @@ func (lh *legacyHelper) callCore(hc *HelperCall) (Value, error) {
 	opts := &Options{
 		s:      hc.s,
 		params: rawParams(hc.params),
-		hash:   rawHash(hc.hash),
+		hashV:  hc.hash,
 	}
 	return callLegacyFunc(hc.s, lh.name, lh.fn, opts)
 }

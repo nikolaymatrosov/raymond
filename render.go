@@ -591,14 +591,14 @@ func (s *state) helperOptions(node *ast.Expression) (*Options, error) {
 		}
 	}
 
-	var hash map[string]interface{}
+	var hashV map[string]Value
 	if node.Hash != nil {
 		var err error
-		_, hash, err = s.evalHash(node.Hash)
+		hashV, err = s.evalHashValues(node.Hash)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &Options{s: s, params: params, hash: hash}, nil
+	return &Options{s: s, params: params, hashV: hashV}, nil
 }
