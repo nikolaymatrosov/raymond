@@ -67,7 +67,7 @@ func TestExecute_StepLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = c.Execute(context.Background(), &bytes.Buffer{}, map[string]interface{}{"items": items})
+	err = c.Execute(context.Background(), &bytes.Buffer{}, map[string]any{"items": items})
 	if !errors.Is(err, ErrStepLimit) {
 		t.Errorf("err = %v, want ErrStepLimit", err)
 	}
@@ -81,7 +81,7 @@ func TestExecute_ContextCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	err = c.Execute(ctx, &bytes.Buffer{}, map[string]interface{}{"items": items})
+	err = c.Execute(ctx, &bytes.Buffer{}, map[string]any{"items": items})
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
@@ -93,7 +93,7 @@ func TestExecute_Concurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 	var wg sync.WaitGroup
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

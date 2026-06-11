@@ -39,8 +39,7 @@ func TestRenderBudgetExceededError_IdentifiableViaErrorsAs(t *testing.T) {
 	if err := tpl.ExecToWithOptions(&buf, nil, nil, RenderOptions{MaxOutputBytes: 100, Enforced: true}); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
-	var bex *RenderBudgetExceededError
-	if errors.As(error(nil), &bex) {
+	if _, ok := errors.AsType[*RenderBudgetExceededError](error(nil)); ok {
 		t.Errorf("nil err must not match *RenderBudgetExceededError")
 	}
 }
@@ -50,8 +49,7 @@ func TestRenderBudgetExceededError_DistinctFromDestinationError(t *testing.T) {
 	myErr := errors.New("nope")
 	err := tpl.ExecToWithOptions(&failingWriter{err: myErr}, nil, nil, RenderOptions{})
 
-	var bex *RenderBudgetExceededError
-	if errors.As(err, &bex) {
+	if _, ok := errors.AsType[*RenderBudgetExceededError](err); ok {
 		t.Errorf("destination failure must NOT match *RenderBudgetExceededError; got %v", err)
 	}
 	var dex *RenderDestinationError
@@ -92,8 +90,7 @@ func TestRenderDestinationError_DistinctFromBudgetError(t *testing.T) {
 	tpl := MustParse("0123456789")
 	var buf bytes.Buffer
 	err := tpl.ExecToWithOptions(&buf, nil, nil, RenderOptions{MaxOutputBytes: 3, Enforced: true})
-	var dex *RenderDestinationError
-	if errors.As(err, &dex) {
+	if _, ok := errors.AsType[*RenderDestinationError](err); ok {
 		t.Errorf("budget overflow must NOT match *RenderDestinationError; got %v", err)
 	}
 	var bex *RenderBudgetExceededError

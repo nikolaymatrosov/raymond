@@ -223,7 +223,7 @@ func (l *Lexer) acceptRun(valid string) {
 }
 
 // errorf emits an error token
-func (l *Lexer) errorf(format string, args ...interface{}) lexFunc {
+func (l *Lexer) errorf(format string, args ...any) lexFunc {
 	l.tokens <- Token{TokenError, fmt.Sprintf(format, args...), l.start, l.line}
 	return nil
 }

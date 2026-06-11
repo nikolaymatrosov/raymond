@@ -70,7 +70,7 @@ func (v *capVisitor) reject(construct string, loc ast.Loc) {
 }
 
 // VisitProgram iterates the program body, short-circuiting on the first error.
-func (v *capVisitor) VisitProgram(node *ast.Program) interface{} {
+func (v *capVisitor) VisitProgram(node *ast.Program) any {
 	for _, n := range node.Body {
 		if v.err != nil {
 			return nil
@@ -82,7 +82,7 @@ func (v *capVisitor) VisitProgram(node *ast.Program) interface{} {
 
 // VisitMustache classifies the mustache and either counts it as a plain
 // substitution (subject to the budget) or rejects it.
-func (v *capVisitor) VisitMustache(node *ast.MustacheStatement) interface{} {
+func (v *capVisitor) VisitMustache(node *ast.MustacheStatement) any {
 	if v.err != nil {
 		return nil
 	}
@@ -134,7 +134,7 @@ func classifyMustache(expr *ast.Expression) (plain bool, simpleConstruct string)
 // VisitBlock classifies the block helper and either records it (recursing
 // into Program/Inverse) or rejects it. {{else}} branches travel with their
 // parent block (no separate toggle).
-func (v *capVisitor) VisitBlock(node *ast.BlockStatement) interface{} {
+func (v *capVisitor) VisitBlock(node *ast.BlockStatement) any {
 	if v.err != nil {
 		return nil
 	}
@@ -198,7 +198,7 @@ func classifyBlockConstruct(name string) string {
 // VisitPartial covers all four partial forms (static name, dynamic
 // (lookup .), inline {{#*inline}}, partial-block {{#> name}}) — they all
 // arrive as *ast.PartialStatement.
-func (v *capVisitor) VisitPartial(node *ast.PartialStatement) interface{} {
+func (v *capVisitor) VisitPartial(node *ast.PartialStatement) any {
 	if v.err != nil {
 		return nil
 	}
@@ -210,23 +210,23 @@ func (v *capVisitor) VisitPartial(node *ast.PartialStatement) interface{} {
 	return nil
 }
 
-func (v *capVisitor) VisitContent(*ast.ContentStatement) interface{} { return nil }
-func (v *capVisitor) VisitComment(*ast.CommentStatement) interface{} { return nil }
+func (v *capVisitor) VisitContent(*ast.ContentStatement) any { return nil }
+func (v *capVisitor) VisitComment(*ast.CommentStatement) any { return nil }
 
 // The remaining Visitor methods are unused — capability classification is
 // done at statement level via the four Visit*Statement methods above. They
 // exist only to satisfy the ast.Visitor interface.
-func (v *capVisitor) VisitExpression(*ast.Expression) interface{}     { return nil }
-func (v *capVisitor) VisitSubExpression(*ast.SubExpression) interface{} {
+func (v *capVisitor) VisitExpression(*ast.Expression) any { return nil }
+func (v *capVisitor) VisitSubExpression(*ast.SubExpression) any {
 	return nil
 }
-func (v *capVisitor) VisitPath(*ast.PathExpression) interface{} { return nil }
-func (v *capVisitor) VisitString(*ast.StringLiteral) interface{} {
+func (v *capVisitor) VisitPath(*ast.PathExpression) any { return nil }
+func (v *capVisitor) VisitString(*ast.StringLiteral) any {
 	return nil
 }
-func (v *capVisitor) VisitBoolean(*ast.BooleanLiteral) interface{} {
+func (v *capVisitor) VisitBoolean(*ast.BooleanLiteral) any {
 	return nil
 }
-func (v *capVisitor) VisitNumber(*ast.NumberLiteral) interface{} { return nil }
-func (v *capVisitor) VisitHash(*ast.Hash) interface{}            { return nil }
-func (v *capVisitor) VisitHashPair(*ast.HashPair) interface{}    { return nil }
+func (v *capVisitor) VisitNumber(*ast.NumberLiteral) any { return nil }
+func (v *capVisitor) VisitHash(*ast.Hash) any            { return nil }
+func (v *capVisitor) VisitHashPair(*ast.HashPair) any    { return nil }

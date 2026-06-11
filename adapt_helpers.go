@@ -17,15 +17,15 @@ func callLegacyFunc(s *state, name string, funcVal reflect.Value, opts *Options)
 	params := opts.Params()
 	funcType := funcVal.Type()
 
-	strType := reflect.TypeOf("")
-	boolType := reflect.TypeOf(true)
+	strType := reflect.TypeFor[string]()
+	boolType := reflect.TypeFor[bool]()
 
 	addOptions := false
 	numIn := funcType.NumIn()
 
 	if numIn == len(params)+1 {
 		lastArgType := funcType.In(numIn - 1)
-		if reflect.TypeOf(opts).AssignableTo(lastArgType) {
+		if reflect.TypeFor[*Options]().AssignableTo(lastArgType) {
 			addOptions = true
 		}
 	}
@@ -97,22 +97,22 @@ func (lh *legacyHelper) callCore(hc *HelperCall) (Value, error) {
 	return callLegacyFunc(hc.s, lh.name, lh.fn, opts)
 }
 
-func rawParams(params []Value) []interface{} {
+func rawParams(params []Value) []any {
 	if params == nil {
 		return nil
 	}
-	out := make([]interface{}, len(params))
+	out := make([]any, len(params))
 	for i, p := range params {
 		out[i] = p.Interface()
 	}
 	return out
 }
 
-func rawHash(hash map[string]Value) map[string]interface{} {
+func rawHash(hash map[string]Value) map[string]any {
 	if len(hash) == 0 {
 		return nil
 	}
-	out := make(map[string]interface{}, len(hash))
+	out := make(map[string]any, len(hash))
 	for k, v := range hash {
 		out[k] = v.Interface()
 	}

@@ -2,15 +2,14 @@ package handlebars
 
 import "testing"
 
-//
 // Those tests come from:
-//   https://github.com/wycats/handlebars.js/blob/master/spec/partials.js
 //
+//	https://github.com/wycats/handlebars.js/blob/master/spec/partials.js
 var partialsTests = []Test{
 	{
 		"basic partials",
 		"Dudes: {{#dudes}}{{> dude}}{{/dudes}}",
-		map[string]interface{}{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil, nil,
 		map[string]string{"dude": "{{name}} ({{url}}) "},
 		"Dudes: Yehuda (http://yehuda) Alan (http://alan) ",
@@ -18,9 +17,9 @@ var partialsTests = []Test{
 	{
 		"dynamic partials",
 		"Dudes: {{#dudes}}{{> (partial)}}{{/dudes}}",
-		map[string]interface{}{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil,
-		map[string]interface{}{"partial": func() string {
+		map[string]any{"partial": func() string {
 			return "dude"
 		}},
 		map[string]string{"dude": "{{name}} ({{url}}) "},
@@ -32,7 +31,7 @@ var partialsTests = []Test{
 	{
 		"partials with context",
 		"Dudes: {{>dude dudes}}",
-		map[string]interface{}{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil, nil,
 		map[string]string{"dude": "{{#this}}{{name}} ({{url}}) {{/this}}"},
 		"Dudes: Yehuda (http://yehuda) Alan (http://alan) ",
@@ -40,7 +39,7 @@ var partialsTests = []Test{
 	{
 		"partials with undefined context",
 		"Dudes: {{>dude dudes}}",
-		map[string]interface{}{},
+		map[string]any{},
 		nil, nil,
 		map[string]string{"dude": "{{foo}} Empty"},
 		"Dudes:  Empty",
@@ -51,7 +50,7 @@ var partialsTests = []Test{
 	{
 		"partials with parameters",
 		"Dudes: {{#dudes}}{{> dude others=..}}{{/dudes}}",
-		map[string]interface{}{"foo": "bar", "dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"foo": "bar", "dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil, nil,
 		map[string]string{"dude": "{{others.foo}}{{name}} ({{url}}) "},
 		"Dudes: barYehuda (http://yehuda) barAlan (http://alan) ",
@@ -59,7 +58,7 @@ var partialsTests = []Test{
 	{
 		"partial in a partial",
 		"Dudes: {{#dudes}}{{>dude}}{{/dudes}}",
-		map[string]interface{}{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil, nil,
 		map[string]string{"dude": "{{name}} {{> url}} ", "url": `<a href="{{url}}">{{url}}</a>`},
 		`Dudes: Yehuda <a href="http://yehuda">http://yehuda</a> Alan <a href="http://alan">http://alan</a> `,
@@ -137,7 +136,7 @@ var partialsTests = []Test{
 	{
 		"should handle empty partial",
 		"Dudes: {{#dudes}}{{> dude}}{{/dudes}}",
-		map[string]interface{}{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil, nil,
 		map[string]string{"dude": ""},
 		"Dudes: ",
@@ -150,7 +149,7 @@ var partialsTests = []Test{
 	{
 		"standalone partials (1) - indented partials",
 		"Dudes:\n{{#dudes}}\n  {{>dude}}\n{{/dudes}}",
-		map[string]interface{}{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil, nil,
 		map[string]string{"dude": "{{name}}\n"},
 		"Dudes:\n  Yehuda\n  Alan\n",
@@ -158,7 +157,7 @@ var partialsTests = []Test{
 	{
 		"standalone partials (2) - nested indented partials",
 		"Dudes:\n{{#dudes}}\n  {{>dude}}\n{{/dudes}}",
-		map[string]interface{}{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
+		map[string]any{"dudes": []map[string]string{{"name": "Yehuda", "url": "http://yehuda"}, {"name": "Alan", "url": "http://alan"}}},
 		nil, nil,
 		map[string]string{"dude": "{{name}}\n {{> url}}", "url": "{{url}}!\n"},
 		"Dudes:\n  Yehuda\n   http://yehuda!\n  Alan\n   http://alan!\n",

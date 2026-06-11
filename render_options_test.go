@@ -9,7 +9,7 @@ import (
 func TestRenderOptions_ZeroValueIsLegacy(t *testing.T) {
 	src := "Hello {{name}}! {{#if show}}visible{{/if}}"
 	tpl := MustParse(src)
-	ctx := map[string]interface{}{"name": "World", "show": true}
+	ctx := map[string]any{"name": "World", "show": true}
 
 	want, err := tpl.Exec(ctx)
 	if err != nil {

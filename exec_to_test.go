@@ -137,17 +137,17 @@ func TestExecToWithOptions_NoPanicOnAdversarialInput(t *testing.T) {
 		"plain text only",
 		"{{#each items}}- {{name}}\n{{/each}}",
 	}
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		src := templates[rng.Intn(len(templates))]
 		tpl, err := Parse(src)
 		if err != nil {
 			continue
 		}
-		ctx := map[string]interface{}{
+		ctx := map[string]any{
 			"a":     rng.Intn(2) == 0,
 			"b":     rng.Intn(100),
 			"c":     "",
-			"items": []map[string]interface{}{{"name": "x"}, {"name": "y"}},
+			"items": []map[string]any{{"name": "x"}, {"name": "y"}},
 		}
 		budget := int64(rng.Intn(64))
 		var buf bytes.Buffer
@@ -160,7 +160,7 @@ func TestExecToWithOptions_NoPanicOnAdversarialInput(t *testing.T) {
 
 func TestExecTo_StreamsBytes(t *testing.T) {
 	src := "Hello {{name}}!"
-	ctx := map[string]interface{}{"name": "World"}
+	ctx := map[string]any{"name": "World"}
 	tpl := MustParse(src)
 	want, err := tpl.Exec(ctx)
 	if err != nil {

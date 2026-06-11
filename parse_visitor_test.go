@@ -11,7 +11,7 @@ func TestVisitor_Budget(t *testing.T) {
 
 	mk := func(n int) string {
 		var sb strings.Builder
-		for i := 0; i < n; i++ {
+		for range n {
 			sb.WriteString("{{x}}")
 		}
 		return sb.String()
@@ -75,9 +75,9 @@ func TestVisitor_SimpleMode(t *testing.T) {
 	opts := ParseOptions{Mode: ModeSimple}
 
 	type row struct {
-		src     string
-		ok      bool
-		want    string // expected Construct on failure
+		src  string
+		ok   bool
+		want string // expected Construct on failure
 	}
 	rows := []row{
 		// success rows
@@ -132,8 +132,8 @@ func TestVisitor_Granular(t *testing.T) {
 	t.Parallel()
 
 	type probe struct {
-		src      string
-		want     string // empty = success
+		src  string
+		want string // empty = success
 	}
 	probes := []probe{
 		{`{{#if x}}y{{/if}}`, "if"},
@@ -155,7 +155,6 @@ func TestVisitor_Granular(t *testing.T) {
 	}
 
 	for _, c := range combos {
-		c := c
 		t.Run("", func(t *testing.T) {
 			opts := ParseOptions{Capabilities: c.caps}
 			for _, p := range probes {

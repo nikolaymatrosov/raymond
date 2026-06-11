@@ -23,7 +23,7 @@ func indirect(v reflect.Value) (rv reflect.Value, isNil bool) {
 }
 
 // IsTrue returns true if obj is a truthy value.
-func IsTrue(obj interface{}) bool {
+func IsTrue(obj any) bool {
 	thruth, ok := isTrueValue(reflect.ValueOf(obj))
 	if !ok {
 		return false

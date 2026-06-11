@@ -9,7 +9,7 @@ import (
 )
 
 // adaptValue converts an arbitrary Go value into the closed model.
-func adaptValue(v interface{}) Value {
+func adaptValue(v any) Value {
 	return adaptReflectValue(reflect.ValueOf(v))
 }
 
@@ -62,7 +62,7 @@ func adaptReflectValue(rv reflect.Value) Value {
 	}
 }
 
-func opaqueValue(raw interface{}, truth bool) Value {
+func opaqueValue(raw any, truth bool) Value {
 	return Value{kind: KindOpaque, truth: truth, raw: raw, legacyStr: true}
 }
 
@@ -185,7 +185,7 @@ func (rd *reflectData) Index(i int) Value {
 // Each ports eachHelper's container branches (helper.go:331-374):
 // slices key=nil, maps in MapKeys order, structs exported fields in
 // declaration order with key = field name.
-func (rd *reflectData) Each(fn func(i int, key interface{}, val Value) error) error {
+func (rd *reflectData) Each(fn func(i int, key any, val Value) error) error {
 	val := rd.rv
 	switch val.Kind() {
 	case reflect.Array, reflect.Slice:
@@ -196,7 +196,7 @@ func (rd *reflectData) Each(fn func(i int, key interface{}, val Value) error) er
 		}
 	case reflect.Map:
 		keys := val.MapKeys()
-		for i := 0; i < len(keys); i++ {
+		for i := range keys {
 			if err := fn(i, keys[i].Interface(), adaptReflectValue(val.MapIndex(keys[i]))); err != nil {
 				return err
 			}

@@ -145,4 +145,3 @@ func TestCappedWriter_UnderlyingShortWriteSurfaced(t *testing.T) {
 		t.Errorf("dst received %q, want %q", sw.buf.String(), "h")
 	}
 }
-

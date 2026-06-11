@@ -72,7 +72,7 @@ func builtinEach(hc *HelperCall) error {
 		return nil
 	}
 	length := it.Len()
-	return it.Each(func(i int, key interface{}, val Value) error {
+	return it.Each(func(i int, key any, val Value) error {
 		if err := hc.s.step(1); err != nil {
 			return err
 		}
@@ -102,7 +102,7 @@ type listIterable struct{ l List }
 
 func (li listIterable) Len() int { return li.l.Len() }
 
-func (li listIterable) Each(fn func(i int, key interface{}, val Value) error) error {
+func (li listIterable) Each(fn func(i int, key any, val Value) error) error {
 	for i := 0; i < li.l.Len(); i++ {
 		if err := fn(i, nil, li.l.Index(i)); err != nil {
 			return err

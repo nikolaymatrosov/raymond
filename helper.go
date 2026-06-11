@@ -14,11 +14,11 @@ type Options struct {
 	err error
 
 	// params
-	params []interface{}
+	params []any
 	// hash is the interface-typed hash exposed to legacy helpers. It is
 	// built lazily from hashV on the first Hash() call, so a helper that
 	// never reads its hash pays nothing for the conversion.
-	hash  map[string]interface{}
+	hash  map[string]any
 	hashV map[string]Value
 }
 
@@ -52,7 +52,7 @@ func init() {
 // helper may be a classic Go function (invoked through reflection, with
 // optional trailing *Options parameter) or a streaming Helper /
 // func(*HelperCall) error.
-func RegisterHelper(name string, helper interface{}) {
+func RegisterHelper(name string, helper any) {
 	helpersMutex.Lock()
 	defer helpersMutex.Unlock()
 
@@ -73,7 +73,7 @@ func RegisterHelper(name string, helper interface{}) {
 }
 
 // RegisterHelpers registers several global helpers. Those helpers will be available to all templates.
-func RegisterHelpers(helpers map[string]interface{}) {
+func RegisterHelpers(helpers map[string]any) {
 	for name, helper := range helpers {
 		RegisterHelper(name, helper)
 	}
@@ -123,7 +123,7 @@ func findHelper(name string) helperEntry {
 //
 
 // Value returns field value from current context.
-func (options *Options) Value(name string) interface{} {
+func (options *Options) Value(name string) any {
 	v, err := options.s.lookupField(options.s.curCtx(), name, false)
 	if err != nil {
 		options.err = err
@@ -138,7 +138,7 @@ func (options *Options) ValueStr(name string) string {
 }
 
 // Ctx returns current evaluation context.
-func (options *Options) Ctx() interface{} {
+func (options *Options) Ctx() any {
 	return options.s.curCtx().Interface()
 }
 
@@ -147,7 +147,7 @@ func (options *Options) Ctx() interface{} {
 //
 
 // HashProp returns hash property.
-func (options *Options) HashProp(name string) interface{} {
+func (options *Options) HashProp(name string) any {
 	return options.Hash()[name]
 }
 
@@ -158,7 +158,7 @@ func (options *Options) HashStr(name string) string {
 
 // Hash returns entire hash. The interface-typed map is built lazily from
 // hashV on first access so helpers that ignore their hash pay nothing.
-func (options *Options) Hash() map[string]interface{} {
+func (options *Options) Hash() map[string]any {
 	if options.hash == nil && options.hashV != nil {
 		options.hash = rawHash(options.hashV)
 	}
@@ -170,7 +170,7 @@ func (options *Options) Hash() map[string]interface{} {
 //
 
 // Param returns parameter at given position.
-func (options *Options) Param(pos int) interface{} {
+func (options *Options) Param(pos int) any {
 	if len(options.params) > pos {
 		return options.params[pos]
 	}
@@ -184,7 +184,7 @@ func (options *Options) ParamStr(pos int) string {
 }
 
 // Params returns all parameters.
-func (options *Options) Params() []interface{} {
+func (options *Options) Params() []any {
 	return options.params
 }
 
@@ -193,7 +193,7 @@ func (options *Options) Params() []interface{} {
 //
 
 // Data returns private data value.
-func (options *Options) Data(name string) interface{} {
+func (options *Options) Data(name string) any {
 	return options.s.frame.Get(name)
 }
 
@@ -214,17 +214,12 @@ func (options *Options) NewDataFrame() *DataFrame {
 	return options.s.frame.Copy()
 }
 
-// newIterDataFrame instanciates a new data frame and set iteration specific vars
-func (options *Options) newIterDataFrame(length int, i int, key interface{}) *DataFrame {
-	return options.s.frame.newIterDataFrame(length, i, key)
-}
-
 //
 // Evaluation
 //
 
 // evalBlock evaluates block with given context, private data and iteration key
-func (options *Options) evalBlock(ctx interface{}, data *DataFrame, key interface{}) string {
+func (options *Options) evalBlock(ctx any, data *DataFrame, key any) string {
 	if options.err != nil {
 		return ""
 	}
@@ -247,12 +242,12 @@ func (options *Options) Fn() string {
 }
 
 // FnCtxData evaluates block with given context and private data frame.
-func (options *Options) FnCtxData(ctx interface{}, data *DataFrame) string {
+func (options *Options) FnCtxData(ctx any, data *DataFrame) string {
 	return options.evalBlock(ctx, data, nil)
 }
 
 // FnWith evaluates block with given context.
-func (options *Options) FnWith(ctx interface{}) string {
+func (options *Options) FnWith(ctx any) string {
 	return options.evalBlock(ctx, nil, nil)
 }
 
@@ -280,7 +275,7 @@ func (options *Options) Inverse() string {
 }
 
 // Eval evaluates field for given context.
-func (options *Options) Eval(ctx interface{}, field string) interface{} {
+func (options *Options) Eval(ctx any, field string) any {
 	if ctx == nil {
 		return nil
 	}

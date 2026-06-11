@@ -12,7 +12,7 @@ var evalTests = []Test{
 	{
 		"checks path in parent contexts",
 		"{{#a}}{{one}}{{#b}}{{one}}{{two}}{{one}}{{/b}}{{/a}}",
-		map[string]interface{}{"a": map[string]int{"one": 1}, "b": map[string]int{"two": 2}},
+		map[string]any{"a": map[string]int{"one": 1}, "b": map[string]int{"two": 2}},
 		nil, nil, nil,
 		"1121",
 	},
@@ -47,7 +47,7 @@ var evalTests = []Test{
 	{
 		"falsy block evaluation",
 		"{{#foo}}bar{{/foo}} baz",
-		map[string]interface{}{"foo": false},
+		map[string]any{"foo": false},
 		nil, nil, nil,
 		" baz",
 	},
@@ -59,7 +59,7 @@ var evalTests = []Test{
 			"body":  "I have so many things to say!",
 		},
 		nil,
-		map[string]interface{}{"bold": func(options *Options) SafeString {
+		map[string]any{"bold": func(options *Options) SafeString {
 			return SafeString(`<div class="mybold">` + options.Fn() + "</div>")
 		}},
 		nil,
@@ -68,7 +68,7 @@ var evalTests = []Test{
 	{
 		"chained blocks",
 		"{{#if a}}A{{else if b}}B{{else}}C{{/if}}",
-		map[string]interface{}{"b": false},
+		map[string]any{"b": false},
 		nil, nil, nil,
 		"C",
 	},
@@ -86,21 +86,21 @@ var evalErrors = []Test{
 	{
 		"functions with wrong number of arguments",
 		`{{foo "bar"}}`,
-		map[string]interface{}{"foo": func(a string, b string) string { return "foo" }},
+		map[string]any{"foo": func(a string, b string) string { return "foo" }},
 		nil, nil, nil,
 		"Helper 'foo' called with wrong number of arguments, needed 2 but got 1",
 	},
 	{
 		"functions with wrong number of returned values (1)",
 		"{{foo}}",
-		map[string]interface{}{"foo": func() {}},
+		map[string]any{"foo": func() {}},
 		nil, nil, nil,
 		"Helper function must return a string or a SafeString",
 	},
 	{
 		"functions with wrong number of returned values (2)",
 		"{{foo}}",
-		map[string]interface{}{"foo": func() (string, bool, string) { return "foo", true, "bar" }},
+		map[string]any{"foo": func() (string, bool, string) { return "foo", true, "bar" }},
 		nil, nil, nil,
 		"Helper function must return a string or a SafeString",
 	},
@@ -155,7 +155,7 @@ func TestEvalStruct(t *testing.T) {
 		Person{"Jean", "Valjean"},
 		"Life is difficult",
 		[]Comment{
-			Comment{
+			{
 				Person{"Marcel", "Beliveau"},
 				"LOL!",
 			},
@@ -249,7 +249,7 @@ func TestEvalMethod(t *testing.T) {
 type TestBar struct {
 }
 
-func (t *TestBar) Subject() interface{} {
+func (t *TestBar) Subject() any {
 	return testBar
 }
 

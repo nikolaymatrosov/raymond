@@ -5,7 +5,7 @@ import "fmt"
 func Example() {
 	source := "<h1>{{title}}</h1><p>{{body.content}}</p>"
 
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"title": "foo",
 		"body":  map[string]string{"content": "bar"},
 	}
@@ -56,7 +56,7 @@ func Example_struct() {
 		Person{"Jean", "Valjean"},
 		"Life is difficult",
 		[]Comment{
-			Comment{
+			{
 				Person{"Marcel", "Beliveau"},
 				"LOL!",
 			},
@@ -84,7 +84,7 @@ func Example_struct() {
 func ExampleRender() {
 	tpl := "<h1>{{title}}</h1><p>{{body.content}}</p>"
 
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"title": "foo",
 		"body":  map[string]string{"content": "bar"},
 	}
@@ -102,7 +102,7 @@ func ExampleRender() {
 func ExampleMustRender() {
 	tpl := "<h1>{{title}}</h1><p>{{body.content}}</p>"
 
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"title": "foo",
 		"body":  map[string]string{"content": "bar"},
 	}

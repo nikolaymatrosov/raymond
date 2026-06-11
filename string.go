@@ -8,8 +8,8 @@ import (
 
 var (
 	// @note borrowed from https://github.com/golang/go/tree/master/src/text/template/exec.go
-	errorType       = reflect.TypeOf((*error)(nil)).Elem()
-	fmtStringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+	errorType       = reflect.TypeFor[error]()
+	fmtStringerType = reflect.TypeFor[fmt.Stringer]()
 
 	zero reflect.Value
 )
@@ -19,16 +19,8 @@ var (
 // A SafeString can be returned by helpers to disable escaping.
 type SafeString string
 
-// isSafeString returns true if argument is a SafeString
-func isSafeString(value interface{}) bool {
-	if _, ok := value.(SafeString); ok {
-		return true
-	}
-	return false
-}
-
 // Str returns string representation of any basic type value.
-func Str(value interface{}) string {
+func Str(value any) string {
 	return strValue(reflect.ValueOf(value))
 }
 
@@ -70,7 +62,7 @@ func strValue(value reflect.Value) string {
 // is best for a call to formatted printer.
 //
 // NOTE: borrowed from https://github.com/golang/go/tree/master/src/text/template/exec.go
-func printableValue(v reflect.Value) (interface{}, bool) {
+func printableValue(v reflect.Value) (any, bool) {
 	if v.Kind() == reflect.Ptr {
 		v, _ = indirect(v) // fmt.Fprint handles nil.
 	}
@@ -79,7 +71,7 @@ func printableValue(v reflect.Value) (interface{}, bool) {
 	}
 
 	if !v.Type().Implements(errorType) && !v.Type().Implements(fmtStringerType) {
-		if v.CanAddr() && (reflect.PtrTo(v.Type()).Implements(errorType) || reflect.PtrTo(v.Type()).Implements(fmtStringerType)) {
+		if v.CanAddr() && (reflect.PointerTo(v.Type()).Implements(errorType) || reflect.PointerTo(v.Type()).Implements(fmtStringerType)) {
 			v = v.Addr()
 		} else {
 			switch v.Kind() {

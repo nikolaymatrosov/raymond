@@ -322,7 +322,8 @@ func (p *parser) parseBlock() *ast.BlockStatement {
 // TODO: This was totally cargo culted ! CHECK THAT !
 //
 // cf. prepareBlock() in:
-//   https://github.com/wycats/handlebars.js/blob/master/lib/handlebars/compiler/helper.js
+//
+//	https://github.com/wycats/handlebars.js/blob/master/lib/handlebars/compiler/helper.js
 func setBlockInverseStrip(block *ast.BlockStatement) {
 	if block.Inverse == nil {
 		return
@@ -380,7 +381,8 @@ func (p *parser) parseOpenBlockExpression(tok *lexer.Token) (*ast.BlockStatement
 }
 
 // inverseChain : openInverseChain program inverseChain?
-//              | inverseAndProgram
+//
+//	| inverseAndProgram
 func (p *parser) parseInverseChain() *ast.Program {
 	if p.isInverse() {
 		// inverseAndProgram
@@ -482,7 +484,8 @@ func (p *parser) parseCloseBlock(block *ast.BlockStatement) {
 }
 
 // mustache : OPEN helperName param* hash? CLOSE
-//          | OPEN_UNESCAPED helperName param* hash? CLOSE_UNESCAPED
+//
+//	| OPEN_UNESCAPED helperName param* hash? CLOSE_UNESCAPED
 func (p *parser) parseMustache() *ast.MustacheStatement {
 	// OPEN | OPEN_UNESCAPED
 	tok := p.shift()
@@ -744,7 +747,8 @@ func (p *parser) parseDataName() *ast.PathExpression {
 
 // path : pathSegments
 // pathSegments : pathSegments SEP ID
-//              | ID
+//
+//	| ID
 func (p *parser) parsePath(data bool) *ast.PathExpression {
 	var tok *lexer.Token
 

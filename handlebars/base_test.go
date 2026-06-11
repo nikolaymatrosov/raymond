@@ -2,8 +2,9 @@ package handlebars
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -18,11 +19,11 @@ var dumpTplNb = 0
 type Test struct {
 	name     string
 	input    string
-	data     interface{}
-	privData map[string]interface{}
-	helpers  map[string]interface{}
+	data     any
+	privData map[string]any
+	helpers  map[string]any
 	partials map[string]string
-	output   interface{}
+	output   any
 }
 
 func launchTests(t *testing.T, tests []Test) {
@@ -34,7 +35,7 @@ func launchTests(t *testing.T, tests []Test) {
 
 		if dumpTpl {
 			filename := strconv.Itoa(dumpTplNb)
-			if err := ioutil.WriteFile(path.Join(".", "dump_tpl", filename), []byte(test.input), 0644); err != nil {
+			if err := os.WriteFile(path.Join(".", "dump_tpl", filename), []byte(test.input), 0644); err != nil {
 				panic(err)
 			}
 			dumpTplNb++
@@ -73,13 +74,7 @@ func launchTests(t *testing.T, tests []Test) {
 				var expectedArr []string
 				expectedArr, ok := test.output.([]string)
 				if ok {
-					match := false
-					for _, expectedStr := range expectedArr {
-						if expectedStr == output {
-							match = true
-							break
-						}
-					}
+					match := slices.Contains(expectedArr, output)
 
 					if !match {
 						t.Errorf("Test '%s' failed\ninput:\n\t'%s'\ndata:\n\t%s\npartials:\n\t%s\nexpected\n\t%q\ngot\n\t%q\nAST:\n%s", test.name, test.input, raymond.Str(test.data), raymond.Str(test.partials), expectedArr, output, tpl.PrintAST())

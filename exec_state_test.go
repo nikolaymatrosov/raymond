@@ -88,7 +88,7 @@ func TestStateStep_FuelAndCtx(t *testing.T) {
 			limits:       Limits{MaxSteps: 10},
 			nextCtxCheck: ctxCheckInterval,
 		}
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			if err := s.step(1); err != nil {
 				t.Fatalf("step %d unexpected error: %v", i, err)
 			}
@@ -137,7 +137,7 @@ func TestCapture_BoundedByRemainingBudget(t *testing.T) {
 
 	_, err := s.capture(func() error {
 		payload := make([]byte, 100)
-		_, werr := io.WriteString(s.w, string(payload))
+		_, werr := s.w.Write(payload)
 		return werr
 	})
 

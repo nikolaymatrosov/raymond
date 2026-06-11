@@ -53,8 +53,7 @@ func Compile(source string, limits Limits) (*Compiled, error) {
 		MaxDepth: limits.MaxDepth,
 	})
 	if err != nil {
-		var ple *parser.LimitError
-		if errors.As(err, &ple) {
+		if ple, ok := errors.AsType[*parser.LimitError](err); ok {
 			return nil, newLimitError(ple.Kind, int64(ple.Limit), ErrTemplateTooComplex)
 		}
 		return nil, err
@@ -93,7 +92,7 @@ func (c *Compiled) RegisterPartial(name string, p *Compiled) {
 
 // Execute renders into w with arbitrary Go data via the reflection
 // adapter. Safe for concurrent use.
-func (c *Compiled) Execute(ctx context.Context, w io.Writer, data interface{}) error {
+func (c *Compiled) Execute(ctx context.Context, w io.Writer, data any) error {
 	return c.exec(ctx, w, adaptValue(data))
 }
 

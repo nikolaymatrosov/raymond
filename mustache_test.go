@@ -1,7 +1,7 @@
 package raymond
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -14,12 +14,14 @@ import (
 // Note, as the JS implementation, the divergences from mustache spec:
 //   - we don't support alternative delimeters
 //   - the mustache lambda spec differs
+//   - the optional dynamic-names module ({{>*foo}}) is not supported
+//   - the optional inheritance module ({{<parent}}/{{$block}}) is not supported
 //
 
 type mustacheTest struct {
 	Name     string
 	Desc     string
-	Data     interface{}
+	Data     any
 	Template string
 	Expected string
 	Partials map[string]string
@@ -42,6 +44,10 @@ func TestMustache(t *testing.T) {
 	skipFiles := map[string]bool{
 		// mustache lambdas differ from handlebars lambdas
 		"~lambdas.yml": true,
+		// optional dynamic-names module ({{>*foo}}) is not part of handlebars
+		"~dynamic-names.yml": true,
+		// optional inheritance module ({{<parent}}/{{$block}}) is not part of handlebars
+		"~inheritance.yml": true,
 	}
 
 	for _, fileName := range mustacheTestFiles() {
@@ -57,7 +63,7 @@ func TestMustache(t *testing.T) {
 func testsFromMustacheFile(fileName string) []Test {
 	result := []Test{}
 
-	fileData, err := ioutil.ReadFile(path.Join("mustache", "specs", fileName))
+	fileData, err := os.ReadFile(path.Join("mustache", "specs", fileName))
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +121,7 @@ func haveAltDelimiter(test mustacheTest) bool {
 func mustacheTestFiles() []string {
 	var result []string
 
-	files, err := ioutil.ReadDir(path.Join("mustache", "specs"))
+	files, err := os.ReadDir(path.Join("mustache", "specs"))
 	if err != nil {
 		panic(err)
 	}
@@ -139,7 +145,7 @@ var mustacheLambdasTests = []Test{
 	{
 		"Interpolation",
 		"Hello, {{lambda}}!",
-		map[string]interface{}{"lambda": func() string { return "world" }},
+		map[string]any{"lambda": func() string { return "world" }},
 		nil, nil, nil,
 		"Hello, world!",
 	},
@@ -158,7 +164,7 @@ var mustacheLambdasTests = []Test{
 	{
 		"Interpolation - Multiple Calls",
 		"{{lambda}} == {{{lambda}}} == {{lambda}}",
-		map[string]interface{}{"lambda": func() string {
+		map[string]any{"lambda": func() string {
 			musTestLambdaInterMult++
 			return Str(musTestLambdaInterMult)
 		}},
@@ -169,7 +175,7 @@ var mustacheLambdasTests = []Test{
 	{
 		"Escaping",
 		"<{{lambda}}{{{lambda}}}",
-		map[string]interface{}{"lambda": func() string { return ">" }},
+		map[string]any{"lambda": func() string { return ">" }},
 		nil, nil, nil,
 		"<&gt;>",
 	},
@@ -205,7 +211,7 @@ var mustacheLambdasTests = []Test{
 	{
 		"Section - Multiple Calls",
 		"{{#lambda}}FILE{{/lambda}} != {{#lambda}}LINE{{/lambda}}",
-		map[string]interface{}{"lambda": func(options *Options) string {
+		map[string]any{"lambda": func(options *Options) string {
 			return "__" + options.Fn() + "__"
 		}},
 		nil, nil, nil,

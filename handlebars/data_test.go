@@ -6,17 +6,16 @@ import (
 	"github.com/aymerick/raymond"
 )
 
-//
 // Those tests come from:
-//   https://github.com/wycats/handlebars.js/blob/master/spec/data.js
 //
+//	https://github.com/wycats/handlebars.js/blob/master/spec/data.js
 var dataTests = []Test{
 	{
 		"passing in data to a compiled function that expects data - works with helpers",
 		"{{hello}}",
 		map[string]string{"noun": "cat"},
-		map[string]interface{}{"adjective": "happy"},
-		map[string]interface{}{"hello": func(options *raymond.Options) string {
+		map[string]any{"adjective": "happy"},
+		map[string]any{"hello": func(options *raymond.Options) string {
 			return options.DataStr("adjective") + " " + options.ValueStr("noun")
 		}},
 		nil,
@@ -26,7 +25,7 @@ var dataTests = []Test{
 		"data can be looked up via @foo",
 		"{{@hello}}",
 		nil,
-		map[string]interface{}{"hello": "hello"},
+		map[string]any{"hello": "hello"},
 		nil, nil,
 		"hello",
 	},
@@ -34,8 +33,8 @@ var dataTests = []Test{
 		"deep @foo triggers automatic top-level data",
 		`{{#let world="world"}}{{#if foo}}{{#if foo}}Hello {{@world}}{{/if}}{{/if}}{{/let}}`,
 		map[string]bool{"foo": true},
-		map[string]interface{}{"hello": "hello"},
-		map[string]interface{}{"let": func(options *raymond.Options) string {
+		map[string]any{"hello": "hello"},
+		map[string]any{"let": func(options *raymond.Options) string {
 			frame := options.NewDataFrame()
 
 			for k, v := range options.Hash() {
@@ -51,8 +50,8 @@ var dataTests = []Test{
 		"parameter data can be looked up via @foo",
 		`{{hello @world}}`,
 		nil,
-		map[string]interface{}{"world": "world"},
-		map[string]interface{}{"hello": func(context string) string {
+		map[string]any{"world": "world"},
+		map[string]any{"hello": func(context string) string {
 			return "Hello " + context
 		}},
 		nil,
@@ -62,8 +61,8 @@ var dataTests = []Test{
 		"hash values can be looked up via @foo",
 		`{{hello noun=@world}}`,
 		nil,
-		map[string]interface{}{"world": "world"},
-		map[string]interface{}{"hello": func(options *raymond.Options) string {
+		map[string]any{"world": "world"},
+		map[string]any{"hello": func(options *raymond.Options) string {
 			return "Hello " + options.HashStr("noun")
 		}},
 		nil,
@@ -73,8 +72,8 @@ var dataTests = []Test{
 		"nested parameter data can be looked up via @foo.bar",
 		`{{hello @world.bar}}`,
 		nil,
-		map[string]interface{}{"world": map[string]string{"bar": "world"}},
-		map[string]interface{}{"hello": func(context string) string {
+		map[string]any{"world": map[string]string{"bar": "world"}},
+		map[string]any{"hello": func(context string) string {
 			return "Hello " + context
 		}},
 		nil,
@@ -84,8 +83,8 @@ var dataTests = []Test{
 		"nested parameter data does not fail with @world.bar",
 		`{{hello @world.bar}}`,
 		nil,
-		map[string]interface{}{"foo": map[string]string{"bar": "world"}},
-		map[string]interface{}{"hello": func(context string) string {
+		map[string]any{"foo": map[string]string{"bar": "world"}},
+		map[string]any{"hello": func(context string) string {
 			return "Hello " + context
 		}},
 		nil,
@@ -99,7 +98,7 @@ var dataTests = []Test{
 		"data can be functions",
 		`{{@hello}}`,
 		nil,
-		map[string]interface{}{"hello": func() string { return "hello" }},
+		map[string]any{"hello": func() string { return "hello" }},
 		nil, nil,
 		"hello",
 	},
@@ -107,7 +106,7 @@ var dataTests = []Test{
 		"data can be functions with params",
 		`{{@hello "hello"}}`,
 		nil,
-		map[string]interface{}{"hello": func(context string) string { return context }},
+		map[string]any{"hello": func(context string) string { return context }},
 		nil, nil,
 		"hello",
 	},
@@ -117,7 +116,7 @@ var dataTests = []Test{
 		`{{#let foo=1 bar=2}}{{#let foo=bar.baz}}{{@bar}}{{@foo}}{{/let}}{{@foo}}{{/let}}`,
 		map[string]map[string]string{"bar": {"baz": "hello world"}},
 		nil,
-		map[string]interface{}{"let": func(options *raymond.Options) string {
+		map[string]any{"let": func(options *raymond.Options) string {
 			frame := options.NewDataFrame()
 
 			for k, v := range options.Hash() {
@@ -133,8 +132,8 @@ var dataTests = []Test{
 		"passing in data to a compiled function that expects data - works with helpers in partials",
 		`{{>myPartial}}`,
 		map[string]string{"noun": "cat"},
-		map[string]interface{}{"adjective": "happy"},
-		map[string]interface{}{"hello": func(options *raymond.Options) string {
+		map[string]any{"adjective": "happy"},
+		map[string]any{"hello": func(options *raymond.Options) string {
 			return options.DataStr("adjective") + " " + options.ValueStr("noun")
 		}},
 		map[string]string{
@@ -145,9 +144,9 @@ var dataTests = []Test{
 	{
 		"passing in data to a compiled function that expects data - works with helpers and parameters",
 		`{{hello world}}`,
-		map[string]interface{}{"exclaim": true, "world": "world"},
-		map[string]interface{}{"adjective": "happy"},
-		map[string]interface{}{"hello": func(context string, options *raymond.Options) string {
+		map[string]any{"exclaim": true, "world": "world"},
+		map[string]any{"adjective": "happy"},
+		map[string]any{"hello": func(context string, options *raymond.Options) string {
 			str := "error"
 			if b, ok := options.Value("exclaim").(bool); ok {
 				if b {
@@ -166,8 +165,8 @@ var dataTests = []Test{
 		"passing in data to a compiled function that expects data - works with block helpers",
 		`{{#hello}}{{world}}{{/hello}}`,
 		map[string]bool{"exclaim": true},
-		map[string]interface{}{"adjective": "happy"},
-		map[string]interface{}{
+		map[string]any{"adjective": "happy"},
+		map[string]any{
 			"hello": func(options *raymond.Options) string {
 				return options.Fn()
 			},
@@ -190,9 +189,9 @@ var dataTests = []Test{
 	{
 		"passing in data to a compiled function that expects data - works with block helpers that use ..",
 		`{{#hello}}{{world ../zomg}}{{/hello}}`,
-		map[string]interface{}{"exclaim": true, "zomg": "world"},
-		map[string]interface{}{"adjective": "happy"},
-		map[string]interface{}{
+		map[string]any{"exclaim": true, "zomg": "world"},
+		map[string]any{"adjective": "happy"},
+		map[string]any{
 			"hello": func(options *raymond.Options) string {
 				return options.FnWith(map[string]string{"exclaim": "?"})
 			},
@@ -206,9 +205,9 @@ var dataTests = []Test{
 	{
 		"passing in data to a compiled function that expects data - data is passed to with block helpers where children use ..",
 		`{{#hello}}{{world ../zomg}}{{/hello}}`,
-		map[string]interface{}{"exclaim": true, "zomg": "world"},
-		map[string]interface{}{"adjective": "happy", "accessData": "#win"},
-		map[string]interface{}{
+		map[string]any{"exclaim": true, "zomg": "world"},
+		map[string]any{"adjective": "happy", "accessData": "#win"},
+		map[string]any{
 			"hello": func(options *raymond.Options) string {
 				return options.DataStr("accessData") + " " + options.FnWith(map[string]string{"exclaim": "?"})
 			},
@@ -222,9 +221,9 @@ var dataTests = []Test{
 	{
 		"you can override inherited data when invoking a helper",
 		`{{#hello}}{{world zomg}}{{/hello}}`,
-		map[string]interface{}{"exclaim": true, "zomg": "planet"},
-		map[string]interface{}{"adjective": "happy"},
-		map[string]interface{}{
+		map[string]any{"exclaim": true, "zomg": "planet"},
+		map[string]any{"adjective": "happy"},
+		map[string]any{
 			"hello": func(options *raymond.Options) string {
 				ctx := map[string]string{"exclaim": "?", "zomg": "world"}
 				data := options.NewDataFrame()
@@ -242,9 +241,9 @@ var dataTests = []Test{
 	{
 		"you can override inherited data when invoking a helper with depth",
 		`{{#hello}}{{world ../zomg}}{{/hello}}`,
-		map[string]interface{}{"exclaim": true, "zomg": "world"},
-		map[string]interface{}{"adjective": "happy"},
-		map[string]interface{}{
+		map[string]any{"exclaim": true, "zomg": "world"},
+		map[string]any{"adjective": "happy"},
+		map[string]any{
 			"hello": func(options *raymond.Options) string {
 				ctx := map[string]string{"exclaim": "?"}
 				data := options.NewDataFrame()
@@ -262,7 +261,7 @@ var dataTests = []Test{
 	{
 		"@root - the root context can be looked up via @root",
 		`{{@root.foo}}`,
-		map[string]interface{}{"foo": "hello"},
+		map[string]any{"foo": "hello"},
 		nil, nil, nil,
 		"hello",
 	},
@@ -270,16 +269,16 @@ var dataTests = []Test{
 		"@root - passed root values take priority",
 		`{{@root.foo}}`,
 		nil,
-		map[string]interface{}{"root": map[string]string{"foo": "hello"}},
+		map[string]any{"root": map[string]string{"foo": "hello"}},
 		nil, nil,
 		"hello",
 	},
 	{
 		"nesting - the root context can be looked up via @root",
 		`{{#helper}}{{#helper}}{{@./depth}} {{@../depth}} {{@../../depth}}{{/helper}}{{/helper}}`,
-		map[string]interface{}{"foo": "hello"},
-		map[string]interface{}{"depth": 0},
-		map[string]interface{}{
+		map[string]any{"foo": "hello"},
+		map[string]any{"depth": 0},
+		map[string]any{
 			"helper": func(options *raymond.Options) string {
 				data := options.NewDataFrame()
 

@@ -20,7 +20,7 @@ func (s *state) renderProgram(node *ast.Program) error {
 
 // renderProgramWith is the evalProgram port (eval.go:250-293): block
 // params, optional context push, optional frame swap, then render.
-func (s *state) renderProgramWith(program *ast.Program, ctx Value, data *DataFrame, key interface{}) error {
+func (s *state) renderProgramWith(program *ast.Program, ctx Value, data *DataFrame, key any) error {
 	blockParams := make(map[string]Value)
 
 	if len(program.BlockParams) > 0 {
@@ -301,11 +301,11 @@ func (s *state) evalParam(node ast.Node) (Value, error) {
 
 // evalHash ports VisitHash (eval.go:1008-1020): nil-valued pairs are
 // skipped. Returns both Value map and raw map.
-func (s *state) evalHash(node *ast.Hash) (map[string]Value, map[string]interface{}, error) {
+func (s *state) evalHash(node *ast.Hash) (map[string]Value, map[string]any, error) {
 	s.at(node)
 	n := len(node.Pairs)
 	values := make(map[string]Value, n)
-	raws := make(map[string]interface{}, n)
+	raws := make(map[string]any, n)
 	for _, pair := range node.Pairs {
 		s.at(pair)
 		v, err := s.evalParam(pair.Val)
@@ -390,7 +390,7 @@ func (s *state) evalPathExpression(node *ast.PathExpression, exprRoot bool) (Val
 	if len(node.Parts) > 0 {
 		if bp, found := s.blockParam(node.Parts[0]); found {
 			synthetic := mapValue(valueMap{node.Parts[0]: bp}, true,
-				map[string]interface{}{node.Parts[0]: bp.Interface()})
+				map[string]any{node.Parts[0]: bp.Interface()})
 			s.pushCtx(synthetic)
 			result, err := s.evalCtxPathExpression(node, exprRoot)
 			s.popCtx()
@@ -481,7 +481,7 @@ func (s *state) evalDepthPath(depth int, parts []string, exprRoot bool) (Value, 
 func (s *state) evalCtxPath(ctx Value, parts []string, exprRoot bool) (Value, bool, error) {
 	if ctx.Kind() == KindList {
 		var values []Value
-		var raws []interface{}
+		var raws []any
 		cl := ctx.asList()
 		for i := 0; i < cl.Len(); i++ {
 			v, _, err := s.resolveParts(cl.Index(i), parts, exprRoot)
@@ -504,7 +504,7 @@ func (s *state) evalCtxPath(ctx Value, parts []string, exprRoot bool) (Value, bo
 // per-part field resolution with lambda invocation interleaved.
 func (s *state) resolveParts(ctx Value, parts []string, exprRoot bool) (Value, bool, error) {
 	partResolved := false
-	for i := 0; i < len(parts); i++ {
+	for i := range parts {
 		part := parts[i]
 		if (len(part) >= 2) && (part[0] == '[') && (part[len(part)-1] == ']') {
 			part = part[1 : len(part)-1]
@@ -581,9 +581,9 @@ func (s *state) invokeFunc(fnVal Value, exprRoot bool) (Value, error) {
 
 // helperOptions ports eval.go:672-686 for lambda invocation.
 func (s *state) helperOptions(node *ast.Expression) (*Options, error) {
-	var params []interface{}
+	var params []any
 	if n := len(node.Params); n > 0 {
-		params = make([]interface{}, n)
+		params = make([]any, n)
 		for i, paramNode := range node.Params {
 			p, err := s.evalParam(paramNode)
 			if err != nil {

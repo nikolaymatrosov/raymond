@@ -112,7 +112,7 @@ func TestClone(t *testing.T) {
 func ExampleTemplate_Exec() {
 	source := "<h1>{{title}}</h1><p>{{body.content}}</p>"
 
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"title": "foo",
 		"body":  map[string]string{"content": "bar"},
 	}
@@ -133,7 +133,7 @@ func ExampleTemplate_Exec() {
 func ExampleTemplate_MustExec() {
 	source := "<h1>{{title}}</h1><p>{{body.content}}</p>"
 
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"title": "foo",
 		"body":  map[string]string{"content": "bar"},
 	}
@@ -151,7 +151,7 @@ func ExampleTemplate_MustExec() {
 func ExampleTemplate_ExecWith() {
 	source := "<h1>{{title}}</h1><p>{{#body}}{{content}} and {{@baz.bat}}{{/body}}</p>"
 
-	ctx := map[string]interface{}{
+	ctx := map[string]any{
 		"title": "foo",
 		"body":  map[string]string{"content": "bar"},
 	}

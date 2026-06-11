@@ -7,7 +7,7 @@ import (
 
 type strTest struct {
 	name   string
-	input  interface{}
+	input  any
 	output string
 }
 
@@ -19,7 +19,7 @@ var strTests = []strTest{
 	{"Float", 25.75, "25.75"},
 	{"Nil", nil, ""},
 	{"[]string", []string{"foo", "bar"}, "foobar"},
-	{"[]interface{} (strings)", []interface{}{"foo", "bar"}, "foobar"},
+	{"[]interface{} (strings)", []any{"foo", "bar"}, "foobar"},
 	{"[]Boolean", []bool{true, false}, "truefalse"},
 }
 
@@ -37,7 +37,7 @@ func ExampleStr() {
 	output := Str(3) + " foos are " + Str(true) + " and " + Str(-1.25) + " bars are " + Str(false) + "\n"
 	output += "But you know '" + Str(nil) + "' John Snow\n"
 	output += "map: " + Str(map[string]string{"foo": "bar"}) + "\n"
-	output += "array: " + Str([]interface{}{true, 10, "foo", 5, "bar"})
+	output += "array: " + Str([]any{true, 10, "foo", 5, "bar"})
 
 	fmt.Println(output)
 	// Output: 3 foos are true and -1.25 bars are false

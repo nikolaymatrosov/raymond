@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -121,7 +121,7 @@ func MustParse(source string) *Template {
 
 // ParseFile reads given file and returns parsed template.
 func ParseFile(filePath string) (*Template, error) {
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (tpl *Template) Clone() *Template {
 }
 
 // RegisterHelper registers a helper for that template.
-func (tpl *Template) RegisterHelper(name string, helper interface{}) {
+func (tpl *Template) RegisterHelper(name string, helper any) {
 	switch helper.(type) {
 	case Helper, func(*HelperCall) error:
 		panic(fmt.Sprintf("Streaming helpers are not supported on Template; register %s globally with RegisterHelper or on a Compiled template", name))
@@ -186,7 +186,7 @@ func (tpl *Template) RegisterHelper(name string, helper interface{}) {
 }
 
 // RegisterHelpers registers several helpers for that template.
-func (tpl *Template) RegisterHelpers(helpers map[string]interface{}) {
+func (tpl *Template) RegisterHelpers(helpers map[string]any) {
 	for name, helper := range helpers {
 		tpl.RegisterHelper(name, helper)
 	}
@@ -224,7 +224,7 @@ func (tpl *Template) RegisterPartials(partials map[string]string) {
 
 // RegisterPartialFile reads given file and registers its content as a partial with given name.
 func (tpl *Template) RegisterPartialFile(filePath string, name string) error {
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -257,12 +257,12 @@ func (tpl *Template) RegisterPartialTemplate(name string, template *Template) {
 }
 
 // Exec evaluates template with given context.
-func (tpl *Template) Exec(ctx interface{}) (result string, err error) {
+func (tpl *Template) Exec(ctx any) (result string, err error) {
 	return tpl.ExecWith(ctx, nil)
 }
 
 // MustExec evaluates template with given context. It panics on error.
-func (tpl *Template) MustExec(ctx interface{}) string {
+func (tpl *Template) MustExec(ctx any) string {
 	result, err := tpl.Exec(ctx)
 	if err != nil {
 		panic(err)
@@ -271,7 +271,7 @@ func (tpl *Template) MustExec(ctx interface{}) string {
 }
 
 // ExecWith evaluates template with given context and private data frame.
-func (tpl *Template) ExecWith(ctx interface{}, privData *DataFrame) (result string, err error) {
+func (tpl *Template) ExecWith(ctx any, privData *DataFrame) (result string, err error) {
 	defer errRecover(&err)
 
 	// parses template if necessary
@@ -291,7 +291,7 @@ func (tpl *Template) ExecWith(ctx interface{}, privData *DataFrame) (result stri
 // ExecToWithOptions(w, ctx, nil, RenderOptions{}). No output budget is
 // enforced; a destination write failure is surfaced as
 // *RenderDestinationError.
-func (tpl *Template) ExecTo(w io.Writer, ctx interface{}) error {
+func (tpl *Template) ExecTo(w io.Writer, ctx any) error {
 	return tpl.ExecToWithOptions(w, ctx, nil, RenderOptions{})
 }
 
@@ -299,7 +299,7 @@ func (tpl *Template) ExecTo(w io.Writer, ctx interface{}) error {
 // data frame and streams the rendered bytes into w as they are
 // produced. It is equivalent to
 // ExecToWithOptions(w, ctx, privData, RenderOptions{}).
-func (tpl *Template) ExecToWith(w io.Writer, ctx interface{}, privData *DataFrame) error {
+func (tpl *Template) ExecToWith(w io.Writer, ctx any, privData *DataFrame) error {
 	return tpl.ExecToWithOptions(w, ctx, privData, RenderOptions{})
 }
 
@@ -318,7 +318,7 @@ func (tpl *Template) ExecToWith(w io.Writer, ctx interface{}, privData *DataFram
 // legacy behaviour: bytes flow to w unmodified, identical to ExecTo
 // without options (FR-007); a zero MaxOutputBytes with Enforced is
 // legal and means "any non-empty output fails" (FR-011).
-func (tpl *Template) ExecToWithOptions(w io.Writer, ctx interface{}, privData *DataFrame, opts RenderOptions) (err error) {
+func (tpl *Template) ExecToWithOptions(w io.Writer, ctx any, privData *DataFrame, opts RenderOptions) (err error) {
 	if opts.Enforced && opts.MaxOutputBytes < 0 {
 		return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
 	}
@@ -344,8 +344,7 @@ func (tpl *Template) ExecToWithOptions(w io.Writer, ctx interface{}, privData *D
 	if errors.Is(rerr, errBudgetOverflow) {
 		return &RenderBudgetExceededError{Kind: "output bytes", Limit: opts.MaxOutputBytes}
 	}
-	var de *destError
-	if errors.As(rerr, &de) {
+	if de, ok := errors.AsType[*destError](rerr); ok {
 		return &RenderDestinationError{Cause: de.cause}
 	}
 	return rerr
@@ -354,7 +353,7 @@ func (tpl *Template) ExecToWithOptions(w io.Writer, ctx interface{}, privData *D
 // execute drives the streaming engine for this template. cap, when
 // non-nil, is the outermost output cap already wrapping w.
 func (tpl *Template) execute(c context.Context, w io.Writer, cap *cappedWriter,
-	ctx interface{}, privData *DataFrame, limits Limits) error {
+	ctx any, privData *DataFrame, limits Limits) error {
 
 	frame := privData
 	if frame == nil {

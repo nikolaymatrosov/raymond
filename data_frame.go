@@ -1,5 +1,7 @@
 package raymond
 
+import "maps"
+
 import "reflect"
 
 // DataFrame represents a private data frame.
@@ -7,13 +9,13 @@ import "reflect"
 // Cf. private variables documentation at: http://handlebarsjs.com/block_helpers.html
 type DataFrame struct {
 	parent *DataFrame
-	data   map[string]interface{}
+	data   map[string]any
 }
 
 // NewDataFrame instanciates a new private data frame.
 func NewDataFrame() *DataFrame {
 	return &DataFrame{
-		data: make(map[string]interface{}),
+		data: make(map[string]any),
 	}
 }
 
@@ -21,9 +23,7 @@ func NewDataFrame() *DataFrame {
 func (p *DataFrame) Copy() *DataFrame {
 	result := NewDataFrame()
 
-	for k, v := range p.data {
-		result.data[k] = v
-	}
+	maps.Copy(result.data, p.data)
 
 	result.parent = p
 
@@ -31,7 +31,7 @@ func (p *DataFrame) Copy() *DataFrame {
 }
 
 // newIterDataFrame instanciates a new private data frame with receiver as parent and with iteration data set (@index, @key, @first, @last)
-func (p *DataFrame) newIterDataFrame(length int, i int, key interface{}) *DataFrame {
+func (p *DataFrame) newIterDataFrame(length int, i int, key any) *DataFrame {
 	result := p.Copy()
 
 	result.Set("index", i)
@@ -43,19 +43,19 @@ func (p *DataFrame) newIterDataFrame(length int, i int, key interface{}) *DataFr
 }
 
 // Set sets a data value.
-func (p *DataFrame) Set(key string, val interface{}) {
+func (p *DataFrame) Set(key string, val any) {
 	p.data[key] = val
 }
 
 // Get gets a data value.
-func (p *DataFrame) Get(key string) interface{} {
+func (p *DataFrame) Get(key string) any {
 	return p.find([]string{key})
 }
 
 // find gets a deep data value
 //
 // @todo This is NOT consistent with the way we resolve data in template (cf. `evalDataPathExpression()`) ! FIX THAT !
-func (p *DataFrame) find(parts []string) interface{} {
+func (p *DataFrame) find(parts []string) any {
 	data := p.data
 
 	for i, part := range parts {
@@ -84,8 +84,8 @@ func (p *DataFrame) find(parts []string) interface{} {
 }
 
 // mapStringInterface converts any `map` to `map[string]interface{}`
-func mapStringInterface(value reflect.Value) map[string]interface{} {
-	result := make(map[string]interface{})
+func mapStringInterface(value reflect.Value) map[string]any {
+	result := make(map[string]any)
 
 	for _, key := range value.MapKeys() {
 		result[strValue(key)] = value.MapIndex(key).Interface()

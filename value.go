@@ -48,7 +48,7 @@ type List interface {
 // struct field name otherwise.
 type Iterable interface {
 	Len() int
-	Each(fn func(i int, key interface{}, val Value) error) error
+	Each(fn func(i int, key any, val Value) error) error
 }
 
 // Value is a tagged union. raw always holds the original Go value so
@@ -78,8 +78,8 @@ type Value struct {
 	// recovered by type assertion (asList/asData/asFn). reflectData
 	// implements both List and Data, so a reflect-backed list answers
 	// both. Scalars leave ref nil, staying allocation-free.
-	ref interface{} // List | Data | callable
-	raw interface{}
+	ref any // List | Data | callable
+	raw any
 }
 
 // asList recovers the List payload, or nil if ref is not list-shaped.
@@ -91,10 +91,10 @@ func (v Value) asData() Data { d, _ := v.ref.(Data); return d }
 // asFn recovers the callable payload (KindFunc only).
 func (v Value) asFn() callable { fn, _ := v.ref.(callable); return fn }
 
-func (v Value) Kind() Kind             { return v.kind }
-func (v Value) IsValid() bool          { return v.kind != KindInvalid }
-func (v Value) Truthy() bool           { return v.truth }
-func (v Value) Interface() interface{} { return v.raw }
+func (v Value) Kind() Kind     { return v.kind }
+func (v Value) IsValid() bool  { return v.kind != KindInvalid }
+func (v Value) Truthy() bool   { return v.truth }
+func (v Value) Interface() any { return v.raw }
 
 // Str mirrors strValue (string.go) kind-by-kind.
 func (v Value) Str() string {
@@ -140,7 +140,7 @@ func (v Value) Str() string {
 
 func stringValue(s string, safe bool) Value {
 	k := KindString
-	var raw interface{} = s
+	var raw any = s
 	if safe {
 		k = KindSafeString
 		raw = SafeString(s)
@@ -152,27 +152,27 @@ func boolValue(b bool) Value {
 	return Value{kind: KindBool, truth: b, b: b, raw: b}
 }
 
-func intValue(i int64, raw interface{}) Value {
+func intValue(i int64, raw any) Value {
 	return Value{kind: KindInt, truth: i != 0, num: uint64(i), raw: raw}
 }
 
-func uintValue(u uint64, raw interface{}) Value {
+func uintValue(u uint64, raw any) Value {
 	return Value{kind: KindUint, truth: u != 0, num: u, raw: raw}
 }
 
-func floatValue(f float64, raw interface{}) Value {
+func floatValue(f float64, raw any) Value {
 	return Value{kind: KindFloat, truth: f != 0, num: math.Float64bits(f), raw: raw}
 }
 
-func listValue(l List, truth bool, raw interface{}) Value {
+func listValue(l List, truth bool, raw any) Value {
 	return Value{kind: KindList, truth: truth, ref: l, raw: raw}
 }
 
-func mapValue(d Data, truth bool, raw interface{}) Value {
+func mapValue(d Data, truth bool, raw any) Value {
 	return Value{kind: KindMap, truth: truth, ref: d, raw: raw}
 }
 
-func funcValue(fn callable, fromMethod bool, raw interface{}) Value {
+func funcValue(fn callable, fromMethod bool, raw any) Value {
 	return Value{kind: KindFunc, truth: true, ref: fn, fromMethod: fromMethod, raw: raw}
 }
 
@@ -186,7 +186,7 @@ func (m valueMap) Lookup(name string) (Value, bool) {
 
 func (m valueMap) Len() int { return len(m) }
 
-func (m valueMap) Each(fn func(i int, key interface{}, val Value) error) error {
+func (m valueMap) Each(fn func(i int, key any, val Value) error) error {
 	i := 0
 	for k, v := range m {
 		if err := fn(i, k, v); err != nil {

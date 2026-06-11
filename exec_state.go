@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/aymerick/raymond/ast"
 )
@@ -65,7 +66,7 @@ func (s *state) writeSteps(n int) error {
 
 // errorf mirrors evalVisitor.errorf/errPanic (eval.go:236-243) as a
 // returned error, identical message shape.
-func (s *state) errorf(format string, args ...interface{}) error {
+func (s *state) errorf(format string, args ...any) error {
 	err := fmt.Errorf(format, args...)
 	return fmt.Errorf("Evaluation error: %s\nCurrent node:\n\t%s", err, s.curNode)
 }
@@ -100,8 +101,8 @@ func (s *state) popBlockParams() {
 	}
 }
 func (s *state) blockParam(name string) (Value, bool) {
-	for i := len(s.blockParams) - 1; i >= 0; i-- {
-		if v, ok := s.blockParams[i][name]; ok {
+	for _, v := range slices.Backward(s.blockParams) {
+		if v, ok := v[name]; ok {
 			// a nil/invalid binding is "not found" (eval.go:428) so
 			// resolution falls through to the context/data path
 			return v, v.IsValid()
@@ -144,10 +145,7 @@ func (s *state) capture(fn func() error) (string, error) {
 	var buf bytes.Buffer
 	var sink io.Writer = &buf
 	if s.cap != nil {
-		remaining := s.cap.limit - s.cap.written
-		if remaining < 0 {
-			remaining = 0
-		}
+		remaining := max(s.cap.limit-s.cap.written, 0)
 		sink = newCappedWriter(&buf, remaining)
 	}
 

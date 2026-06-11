@@ -6,17 +6,16 @@ import (
 	"github.com/aymerick/raymond"
 )
 
-//
 // Those tests come from:
-//   https://github.com/wycats/handlebars.js/blob/master/spec/subexpression.js
 //
+//	https://github.com/wycats/handlebars.js/blob/master/spec/subexpression.js
 var subexpressionsTests = []Test{
 	{
 		"arg-less helper",
 		"{{foo (bar)}}!",
-		map[string]interface{}{},
+		map[string]any{},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"foo": func(val string) string {
 				return val + val
 			},
@@ -30,9 +29,9 @@ var subexpressionsTests = []Test{
 	{
 		"helper w args",
 		"{{blog (equal a b)}}",
-		map[string]interface{}{"bar": "LOL"},
+		map[string]any{"bar": "LOL"},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"blog":  blogHelper,
 			"equal": equalHelper,
 		},
@@ -42,9 +41,9 @@ var subexpressionsTests = []Test{
 	{
 		"mixed paths and helpers",
 		"{{blog baz.bat (equal a b) baz.bar}}",
-		map[string]interface{}{"bar": "LOL", "baz": map[string]string{"bat": "foo!", "bar": "bar!"}},
+		map[string]any{"bar": "LOL", "baz": map[string]string{"bat": "foo!", "bar": "bar!"}},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"blog": func(p, p2, p3 string) string {
 				return "val is " + p + ", " + p2 + " and " + p3
 			},
@@ -56,9 +55,9 @@ var subexpressionsTests = []Test{
 	{
 		"supports much nesting",
 		"{{blog (equal (equal true true) true)}}",
-		map[string]interface{}{"bar": "LOL"},
+		map[string]any{"bar": "LOL"},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"blog":  blogHelper,
 			"equal": equalHelper,
 		},
@@ -69,45 +68,45 @@ var subexpressionsTests = []Test{
 	{
 		"GH-800 : Complex subexpressions (1)",
 		"{{dash 'abc' (concat a b)}}",
-		map[string]interface{}{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
+		map[string]any{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
 		nil,
-		map[string]interface{}{"dash": dashHelper, "concat": concatHelper},
+		map[string]any{"dash": dashHelper, "concat": concatHelper},
 		nil,
 		"abc-ab",
 	},
 	{
 		"GH-800 : Complex subexpressions (2)",
 		"{{dash d (concat a b)}}",
-		map[string]interface{}{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
+		map[string]any{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
 		nil,
-		map[string]interface{}{"dash": dashHelper, "concat": concatHelper},
+		map[string]any{"dash": dashHelper, "concat": concatHelper},
 		nil,
 		"d-ab",
 	},
 	{
 		"GH-800 : Complex subexpressions (3)",
 		"{{dash c.c (concat a b)}}",
-		map[string]interface{}{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
+		map[string]any{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
 		nil,
-		map[string]interface{}{"dash": dashHelper, "concat": concatHelper},
+		map[string]any{"dash": dashHelper, "concat": concatHelper},
 		nil,
 		"c-ab",
 	},
 	{
 		"GH-800 : Complex subexpressions (4)",
 		"{{dash (concat a b) c.c}}",
-		map[string]interface{}{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
+		map[string]any{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
 		nil,
-		map[string]interface{}{"dash": dashHelper, "concat": concatHelper},
+		map[string]any{"dash": dashHelper, "concat": concatHelper},
 		nil,
 		"ab-c",
 	},
 	{
 		"GH-800 : Complex subexpressions (5)",
 		"{{dash (concat a e.e) c.c}}",
-		map[string]interface{}{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
+		map[string]any{"a": "a", "b": "b", "c": map[string]string{"c": "c"}, "d": "d", "e": map[string]string{"e": "e"}},
 		nil,
-		map[string]interface{}{"dash": dashHelper, "concat": concatHelper},
+		map[string]any{"dash": dashHelper, "concat": concatHelper},
 		nil,
 		"ae-c",
 	},
@@ -116,9 +115,9 @@ var subexpressionsTests = []Test{
 		// note: test not relevant
 		"provides each nested helper invocation its own options hash",
 		"{{equal (equal true true) true}}",
-		map[string]interface{}{},
+		map[string]any{},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"equal": equalHelper,
 		},
 		nil,
@@ -127,9 +126,9 @@ var subexpressionsTests = []Test{
 	{
 		"with hashes",
 		"{{blog (equal (equal true true) true fun='yes')}}",
-		map[string]interface{}{"bar": "LOL"},
+		map[string]any{"bar": "LOL"},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"blog":  blogHelper,
 			"equal": equalHelper,
 		},
@@ -139,9 +138,9 @@ var subexpressionsTests = []Test{
 	{
 		"as hashes",
 		"{{blog fun=(equal (blog fun=1) 'val is 1')}}",
-		map[string]interface{}{},
+		map[string]any{},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"blog": func(options *raymond.Options) string {
 				return "val is " + options.HashStr("fun")
 			},
@@ -153,9 +152,9 @@ var subexpressionsTests = []Test{
 	{
 		"multiple subexpressions in a hash",
 		`{{input aria-label=(t "Name") placeholder=(t "Example User")}}`,
-		map[string]interface{}{},
+		map[string]any{},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"input": func(options *raymond.Options) raymond.SafeString {
 				return raymond.SafeString(`<input aria-label="` + options.HashStr("aria-label") + `" placeholder="` + options.HashStr("placeholder") + `" />`)
 			},
@@ -171,7 +170,7 @@ var subexpressionsTests = []Test{
 		`{{input aria-label=(t item.field) placeholder=(t item.placeholder)}}`,
 		map[string]map[string]string{"item": {"field": "Name", "placeholder": "Example User"}},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"input": func(options *raymond.Options) raymond.SafeString {
 				return raymond.SafeString(`<input aria-label="` + options.HashStr("aria-label") + `" placeholder="` + options.HashStr("placeholder") + `" />`)
 			},
@@ -190,9 +189,9 @@ var subexpressionsTests = []Test{
 	{
 		"subexpression functions on the context",
 		"{{foo (bar)}}!",
-		map[string]interface{}{"bar": func() string { return "LOL" }},
+		map[string]any{"bar": func() string { return "LOL" }},
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"foo": func(val string) string {
 				return val + val
 			},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -58,13 +59,7 @@ func runParity(t *testing.T, tests []Test) {
 		}
 
 		if expectedArr, ok := test.output.([]string); ok {
-			match := false
-			for _, expectedStr := range expectedArr {
-				if expectedStr == output {
-					match = true
-					break
-				}
-			}
+			match := slices.Contains(expectedArr, output)
 			if !match {
 				t.Errorf("Parity test '%s' failed\ninput:\n\t'%s'\ndata:\n\t%s\npartials:\n\t%s\nexpected\n\t%q\ngot\n\t%q", test.name, test.input, Str(test.data), Str(test.partials), expectedArr, output)
 			}
@@ -154,6 +149,10 @@ func TestParity_Mustache(t *testing.T) {
 	skipFiles := map[string]bool{
 		// mustache lambdas differ from handlebars lambdas (TestMustache parity)
 		"~lambdas.yml": true,
+		// optional dynamic-names module ({{>*foo}}) is not part of handlebars
+		"~dynamic-names.yml": true,
+		// optional inheritance module ({{<parent}}/{{$block}}) is not part of handlebars
+		"~inheritance.yml": true,
 	}
 
 	total := 0
@@ -178,14 +177,14 @@ var parityMustacheLambdasTests = []Test{
 	{
 		"Interpolation",
 		"Hello, {{lambda}}!",
-		map[string]interface{}{"lambda": func() string { return "world" }},
+		map[string]any{"lambda": func() string { return "world" }},
 		nil, nil, nil,
 		"Hello, world!",
 	},
 	{
 		"Interpolation - Multiple Calls",
 		"{{lambda}} == {{{lambda}}} == {{lambda}}",
-		map[string]interface{}{"lambda": func() string {
+		map[string]any{"lambda": func() string {
 			parityLambdaInterMult++
 			return Str(parityLambdaInterMult)
 		}},
@@ -195,14 +194,14 @@ var parityMustacheLambdasTests = []Test{
 	{
 		"Escaping",
 		"<{{lambda}}{{{lambda}}}",
-		map[string]interface{}{"lambda": func() string { return ">" }},
+		map[string]any{"lambda": func() string { return ">" }},
 		nil, nil, nil,
 		"<&gt;>",
 	},
 	{
 		"Section - Multiple Calls",
 		"{{#lambda}}FILE{{/lambda}} != {{#lambda}}LINE{{/lambda}}",
-		map[string]interface{}{"lambda": func(options *Options) string {
+		map[string]any{"lambda": func(options *Options) string {
 			return "__" + options.Fn() + "__"
 		}},
 		nil, nil, nil,

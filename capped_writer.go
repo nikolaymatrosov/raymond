@@ -47,10 +47,7 @@ func (cw *cappedWriter) Write(p []byte) (int, error) {
 		return 0, nil
 	}
 
-	remaining := cw.limit - cw.written
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(cw.limit-cw.written, 0)
 
 	if int64(len(p)) <= remaining {
 		n, err := cw.dst.Write(p)
@@ -90,10 +87,7 @@ func (cw *cappedWriter) WriteString(s string) (int, error) {
 		return 0, nil
 	}
 
-	remaining := cw.limit - cw.written
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(cw.limit-cw.written, 0)
 
 	if int64(len(s)) <= remaining {
 		n, err := io.WriteString(cw.dst, s)

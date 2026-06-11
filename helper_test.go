@@ -14,7 +14,7 @@ func barHelper(options *Options) string { return "bar" }
 
 func echoHelper(str string, nb int) string {
 	result := ""
-	for i := 0; i < nb; i++ {
+	for range nb {
 		result += str
 	}
 
@@ -31,7 +31,7 @@ func boolHelper(b bool) string {
 
 func gnakHelper(nb int) string {
 	result := ""
-	for i := 0; i < nb; i++ {
+	for range nb {
 		result += "GnAK!"
 	}
 
@@ -47,7 +47,7 @@ var helperTests = []Test{
 		"simple helper",
 		`{{foo}}`,
 		nil, nil,
-		map[string]interface{}{"foo": barHelper},
+		map[string]any{"foo": barHelper},
 		nil,
 		`bar`,
 	},
@@ -55,16 +55,16 @@ var helperTests = []Test{
 		"helper with literal string param",
 		`{{echo "foo" 1}}`,
 		nil, nil,
-		map[string]interface{}{"echo": echoHelper},
+		map[string]any{"echo": echoHelper},
 		nil,
 		`foo`,
 	},
 	{
 		"helper with identifier param",
 		`{{echo foo 1}}`,
-		map[string]interface{}{"foo": "bar"},
+		map[string]any{"foo": "bar"},
 		nil,
-		map[string]interface{}{"echo": echoHelper},
+		map[string]any{"echo": echoHelper},
 		nil,
 		`bar`,
 	},
@@ -72,7 +72,7 @@ var helperTests = []Test{
 		"helper with literal boolean param",
 		`{{bool true}}`,
 		nil, nil,
-		map[string]interface{}{"bool": boolHelper},
+		map[string]any{"bool": boolHelper},
 		nil,
 		`yes it is`,
 	},
@@ -80,7 +80,7 @@ var helperTests = []Test{
 		"helper with literal boolean param",
 		`{{bool false}}`,
 		nil, nil,
-		map[string]interface{}{"bool": boolHelper},
+		map[string]any{"bool": boolHelper},
 		nil,
 		`absolutely not`,
 	},
@@ -88,7 +88,7 @@ var helperTests = []Test{
 		"helper with literal boolean param",
 		`{{gnak 5}}`,
 		nil, nil,
-		map[string]interface{}{"gnak": gnakHelper},
+		map[string]any{"gnak": gnakHelper},
 		nil,
 		`GnAK!GnAK!GnAK!GnAK!GnAK!`,
 	},
@@ -96,7 +96,7 @@ var helperTests = []Test{
 		"helper with several parameters",
 		`{{echo "GnAK!" 3}}`,
 		nil, nil,
-		map[string]interface{}{"echo": echoHelper},
+		map[string]any{"echo": echoHelper},
 		nil,
 		`GnAK!GnAK!GnAK!`,
 	},
@@ -115,14 +115,14 @@ var helperTests = []Test{
 	{
 		"#if helper with truthy identifier",
 		`{{#if ok}}YES MAN{{/if}}`,
-		map[string]interface{}{"ok": true},
+		map[string]any{"ok": true},
 		nil, nil, nil,
 		`YES MAN`,
 	},
 	{
 		"#if helper with falsy identifier",
 		`{{#if ok}}YES MAN{{/if}}`,
-		map[string]interface{}{"ok": false},
+		map[string]any{"ok": false},
 		nil, nil, nil,
 		``,
 	},
@@ -141,63 +141,63 @@ var helperTests = []Test{
 	{
 		"#unless helper with truthy identifier",
 		`{{#unless ok}}YES MAN{{/unless}}`,
-		map[string]interface{}{"ok": true},
+		map[string]any{"ok": true},
 		nil, nil, nil,
 		``,
 	},
 	{
 		"#unless helper with falsy identifier",
 		`{{#unless ok}}YES MAN{{/unless}}`,
-		map[string]interface{}{"ok": false},
+		map[string]any{"ok": false},
 		nil, nil, nil,
 		`YES MAN`,
 	},
 	{
 		"#equal helper with same string var",
 		`{{#equal foo "bar"}}YES MAN{{/equal}}`,
-		map[string]interface{}{"foo": "bar"},
+		map[string]any{"foo": "bar"},
 		nil, nil, nil,
 		`YES MAN`,
 	},
 	{
 		"#equal helper with different string var",
 		`{{#equal foo "baz"}}YES MAN{{/equal}}`,
-		map[string]interface{}{"foo": "bar"},
+		map[string]any{"foo": "bar"},
 		nil, nil, nil,
 		``,
 	},
 	{
 		"#equal helper with same string vars",
 		`{{#equal foo bar}}YES MAN{{/equal}}`,
-		map[string]interface{}{"foo": "baz", "bar": "baz"},
+		map[string]any{"foo": "baz", "bar": "baz"},
 		nil, nil, nil,
 		`YES MAN`,
 	},
 	{
 		"#equal helper with different string vars",
 		`{{#equal foo bar}}YES MAN{{/equal}}`,
-		map[string]interface{}{"foo": "baz", "bar": "tag"},
+		map[string]any{"foo": "baz", "bar": "tag"},
 		nil, nil, nil,
 		``,
 	},
 	{
 		"#equal helper with same integer var",
 		`{{#equal foo 1}}YES MAN{{/equal}}`,
-		map[string]interface{}{"foo": 1},
+		map[string]any{"foo": 1},
 		nil, nil, nil,
 		`YES MAN`,
 	},
 	{
 		"#equal helper with different integer var",
 		`{{#equal foo 0}}YES MAN{{/equal}}`,
-		map[string]interface{}{"foo": 1},
+		map[string]any{"foo": 1},
 		nil, nil, nil,
 		``,
 	},
 	{
 		"#equal helper inside HTML tag",
 		`<option value="test" {{#equal value "test"}}selected{{/equal}}>Test</option>`,
-		map[string]interface{}{"value": "test"},
+		map[string]any{"value": "test"},
 		nil, nil, nil,
 		`<option value="test" selected>Test</option>`,
 	},
@@ -208,7 +208,7 @@ var helperTests = []Test{
 {{#equal nb 0}}nothing{{/equal}}
 {{#equal nb 1}}there is one{{/equal}}
 {{#equal nb "1"}}everything is stringified before comparison{{/equal}}`,
-		map[string]interface{}{
+		map[string]any{
 			"foo": "bar",
 			"baz": "bar",
 			"nb":  1,
@@ -262,6 +262,10 @@ func TestHelperCtx(t *testing.T) {
 
 		return SafeString(result)
 	})
+	// Global helpers persist across tests; remove this one so it does not
+	// shadow data keys named "template" in later tests (e.g. the mustache
+	// spec "No Re-interpolation" case).
+	defer RemoveHelper("template")
 
 	template := `By {{ template "namefile" }}`
 	context := Author{"Alan", "Johnson"}

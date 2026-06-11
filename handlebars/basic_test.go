@@ -8,10 +8,9 @@ import (
 	"github.com/aymerick/raymond"
 )
 
-//
 // Those tests come from:
-//   https://github.com/wycats/handlebars.js/blob/master/spec/basic.js
 //
+//	https://github.com/wycats/handlebars.js/blob/master/spec/basic.js
 var basicTests = []Test{
 	{
 		"most basic",
@@ -120,21 +119,21 @@ var basicTests = []Test{
 	{
 		"boolean (1)",
 		"{{#goodbye}}GOODBYE {{/goodbye}}cruel {{world}}!",
-		map[string]interface{}{"goodbye": true, "world": "world"},
+		map[string]any{"goodbye": true, "world": "world"},
 		nil, nil, nil,
 		"GOODBYE cruel world!",
 	},
 	{
 		"boolean (2)",
 		"{{#goodbye}}GOODBYE {{/goodbye}}cruel {{world}}!",
-		map[string]interface{}{"goodbye": false, "world": "world"},
+		map[string]any{"goodbye": false, "world": "world"},
 		nil, nil, nil,
 		"cruel world!",
 	},
 	{
 		"zeros (1)",
 		"num1: {{num1}}, num2: {{num2}}",
-		map[string]interface{}{"num1": 42, "num2": 0},
+		map[string]any{"num1": 42, "num2": 0},
 		nil, nil, nil,
 		"num1: 42, num2: 0",
 	},
@@ -148,14 +147,14 @@ var basicTests = []Test{
 	{
 		"zeros (3)",
 		"num: {{num1/num2}}",
-		map[string]map[string]interface{}{"num1": {"num2": 0}},
+		map[string]map[string]any{"num1": {"num2": 0}},
 		nil, nil, nil,
 		"num: 0",
 	},
 	{
 		"false (1)",
 		"val1: {{val1}}, val2: {{val2}}",
-		map[string]interface{}{"val1": false, "val2": false},
+		map[string]any{"val1": false, "val2": false},
 		nil, nil, nil,
 		"val1: false, val2: false",
 	},
@@ -169,21 +168,21 @@ var basicTests = []Test{
 	{
 		"false (3)",
 		"val: {{val1/val2}}",
-		map[string]map[string]interface{}{"val1": {"val2": false}},
+		map[string]map[string]any{"val1": {"val2": false}},
 		nil, nil, nil,
 		"val: false",
 	},
 	{
 		"false (4)",
 		"val1: {{{val1}}}, val2: {{{val2}}}",
-		map[string]interface{}{"val1": false, "val2": false},
+		map[string]any{"val1": false, "val2": false},
 		nil, nil, nil,
 		"val1: false, val2: false",
 	},
 	{
 		"false (5)",
 		"val: {{{val1/val2}}}",
-		map[string]map[string]interface{}{"val1": {"val2": false}},
+		map[string]map[string]any{"val1": {"val2": false}},
 		nil, nil, nil,
 		"val: false",
 	},
@@ -265,21 +264,21 @@ var basicTests = []Test{
 	{
 		"functions returning safestrings shouldn't be escaped",
 		"{{awesome}}",
-		map[string]interface{}{"awesome": func() raymond.SafeString { return raymond.SafeString("&'\\<>") }},
+		map[string]any{"awesome": func() raymond.SafeString { return raymond.SafeString("&'\\<>") }},
 		nil, nil, nil,
 		"&'\\<>",
 	},
 	{
 		"functions (1)",
 		"{{awesome}}",
-		map[string]interface{}{"awesome": func() string { return "Awesome" }},
+		map[string]any{"awesome": func() string { return "Awesome" }},
 		nil, nil, nil,
 		"Awesome",
 	},
 	{
 		"functions (2)",
 		"{{awesome}}",
-		map[string]interface{}{"awesome": func(options *raymond.Options) string {
+		map[string]any{"awesome": func(options *raymond.Options) string {
 			return options.ValueStr("more")
 		}, "more": "More awesome"},
 		nil, nil, nil,
@@ -288,7 +287,7 @@ var basicTests = []Test{
 	{
 		"functions with context argument",
 		"{{awesome frank}}",
-		map[string]interface{}{"awesome": func(context string) string {
+		map[string]any{"awesome": func(context string) string {
 			return context
 		}, "frank": "Frank"},
 		nil, nil, nil,
@@ -297,7 +296,7 @@ var basicTests = []Test{
 	{
 		"pathed functions with context argument",
 		"{{bar.awesome frank}}",
-		map[string]interface{}{"bar": map[string]interface{}{"awesome": func(context string) string {
+		map[string]any{"bar": map[string]any{"awesome": func(context string) string {
 			return context
 		}}, "frank": "Frank"},
 		nil, nil, nil,
@@ -306,7 +305,7 @@ var basicTests = []Test{
 	{
 		"depthed functions with context argument",
 		"{{#with frank}}{{../awesome .}}{{/with}}",
-		map[string]interface{}{"awesome": func(context string) string {
+		map[string]any{"awesome": func(context string) string {
 			return context
 		}, "frank": "Frank"},
 		nil, nil, nil,
@@ -315,7 +314,7 @@ var basicTests = []Test{
 	{
 		"block functions with context argument",
 		"{{#awesome 1}}inner {{.}}{{/awesome}}",
-		map[string]interface{}{"awesome": func(context interface{}, options *raymond.Options) string {
+		map[string]any{"awesome": func(context any, options *raymond.Options) string {
 			return options.FnWith(context)
 		}},
 		nil, nil, nil,
@@ -324,8 +323,8 @@ var basicTests = []Test{
 	{
 		"depthed block functions with context argument",
 		"{{#with value}}{{#../awesome 1}}inner {{.}}{{/../awesome}}{{/with}}",
-		map[string]interface{}{
-			"awesome": func(context interface{}, options *raymond.Options) string {
+		map[string]any{
+			"awesome": func(context any, options *raymond.Options) string {
 				return options.FnWith(context)
 			},
 			"value": true,
@@ -336,7 +335,7 @@ var basicTests = []Test{
 	{
 		"block functions without context argument",
 		"{{#awesome}}inner{{/awesome}}",
-		map[string]interface{}{
+		map[string]any{
 			"awesome": func(options *raymond.Options) string {
 				return options.Fn()
 			},
@@ -434,7 +433,7 @@ var basicTests = []Test{
 		"that current context path ({{.}}) doesn't hit helpers",
 		"test: {{.}}",
 		nil, nil,
-		map[string]interface{}{"helper": func() string {
+		map[string]any{"helper": func() string {
 			panic("fail")
 		}},
 		nil,
@@ -443,7 +442,7 @@ var basicTests = []Test{
 	{
 		"complex but empty paths (1)",
 		"{{person/name}}",
-		map[string]map[string]interface{}{"person": {"name": nil}},
+		map[string]map[string]any{"person": {"name": nil}},
 		nil, nil, nil,
 		"",
 	},
@@ -457,14 +456,14 @@ var basicTests = []Test{
 	{
 		"this keyword in paths (1)",
 		"{{#goodbyes}}{{this}}{{/goodbyes}}",
-		map[string]interface{}{"goodbyes": []string{"goodbye", "Goodbye", "GOODBYE"}},
+		map[string]any{"goodbyes": []string{"goodbye", "Goodbye", "GOODBYE"}},
 		nil, nil, nil,
 		"goodbyeGoodbyeGOODBYE",
 	},
 	{
 		"this keyword in paths (2)",
 		"{{#hellos}}{{this/text}}{{/hellos}}",
-		map[string]interface{}{"hellos": []interface{}{
+		map[string]any{"hellos": []any{
 			map[string]string{"text": "hello"},
 			map[string]string{"text": "Hello"},
 			map[string]string{"text": "HELLO"},
@@ -489,27 +488,27 @@ var basicTests = []Test{
 	{
 		"this keyword in helpers (1)",
 		"{{#goodbyes}}{{foo this}}{{/goodbyes}}",
-		map[string]interface{}{"goodbyes": []string{"goodbye", "Goodbye", "GOODBYE"}},
+		map[string]any{"goodbyes": []string{"goodbye", "Goodbye", "GOODBYE"}},
 		nil,
-		map[string]interface{}{"foo": barSuffixHelper},
+		map[string]any{"foo": barSuffixHelper},
 		nil,
 		"bar goodbyebar Goodbyebar GOODBYE",
 	},
 	{
 		"this keyword in helpers (2)",
 		"{{#hellos}}{{foo this/text}}{{/hellos}}",
-		map[string]interface{}{"hellos": []map[string]string{{"text": "hello"}, {"text": "Hello"}, {"text": "HELLO"}}},
+		map[string]any{"hellos": []map[string]string{{"text": "hello"}, {"text": "Hello"}, {"text": "HELLO"}}},
 		nil,
-		map[string]interface{}{"foo": barSuffixHelper},
+		map[string]any{"foo": barSuffixHelper},
 		nil,
 		"bar hellobar Hellobar HELLO",
 	},
 	{
 		"this keyword nested inside helpers param (1)",
 		"{{foo [this]}}",
-		map[string]interface{}{"this": "bar"},
+		map[string]any{"this": "bar"},
 		nil,
-		map[string]interface{}{"foo": echoHelper},
+		map[string]any{"foo": echoHelper},
 		nil,
 		"bar",
 	},
@@ -518,7 +517,7 @@ var basicTests = []Test{
 		"{{foo text/[this]}}",
 		map[string]map[string]string{"text": {"this": "bar"}},
 		nil,
-		map[string]interface{}{"foo": echoHelper},
+		map[string]any{"foo": echoHelper},
 		nil,
 		"bar",
 	},
@@ -539,7 +538,7 @@ var basicTests = []Test{
 	{
 		"pass string literals (3)",
 		`{{#"foo"}}{{.}}{{/"foo"}}`,
-		map[string]interface{}{"foo": []string{"bar", "baz"}},
+		map[string]any{"foo": []string{"bar", "baz"}},
 		nil, nil, nil,
 		"barbaz",
 	},
@@ -574,7 +573,7 @@ var basicTests = []Test{
 	{
 		"pass number literals (5)",
 		"{{12.34 1}}",
-		map[string]interface{}{"12.34": func(context string) string {
+		map[string]any{"12.34": func(context string) string {
 			return "bar" + context
 		}},
 		nil, nil, nil,
@@ -604,9 +603,9 @@ var basicTests = []Test{
 	{
 		"should handle literals in subexpression",
 		"{{foo (false)}}",
-		map[string]interface{}{"false": func() string { return "bar" }},
+		map[string]any{"false": func() string { return "bar" }},
 		nil,
-		map[string]interface{}{"foo": func(context string) string {
+		map[string]any{"foo": func(context string) string {
 			return context
 		}},
 		nil,

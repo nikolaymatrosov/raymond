@@ -6,9 +6,9 @@ import (
 )
 
 // TestParseOptions_Precedence covers the precedence rules from data-model §2:
-//   1. ModeSimple → simple semantics (Capabilities ignored).
-//   2. else if any toggle / Budget.Enforced → granular.
-//   3. else → legacy (visitor not invoked).
+//  1. ModeSimple → simple semantics (Capabilities ignored).
+//  2. else if any toggle / Budget.Enforced → granular.
+//  3. else → legacy (visitor not invoked).
 func TestParseOptions_Precedence(t *testing.T) {
 	t.Parallel()
 

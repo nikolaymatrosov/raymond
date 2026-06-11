@@ -110,8 +110,7 @@ func TestParseWithLimits_SyntaxErrorNotLimitError(t *testing.T) {
 		t.Fatal("expected syntax error")
 	}
 
-	var limitErr *LimitError
-	if errors.As(err, &limitErr) {
+	if _, ok := errors.AsType[*LimitError](err); ok {
 		t.Errorf("syntax error must not be a *LimitError, got %v", err)
 	}
 }

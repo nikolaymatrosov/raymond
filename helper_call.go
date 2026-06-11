@@ -109,7 +109,7 @@ func (hc *HelperCall) WriteSafe(str string) (int, error) {
 func (hc *HelperCall) Fn() error { return hc.fnWithKey(Value{}, nil, nil) }
 
 // FnWith streams the block body with a new context.
-func (hc *HelperCall) FnWith(ctx interface{}) error {
+func (hc *HelperCall) FnWith(ctx any) error {
 	return hc.fnWithKey(adaptValue(ctx), nil, nil)
 }
 
@@ -120,7 +120,7 @@ func (hc *HelperCall) FnData(frame *DataFrame) error {
 
 // fnWithKey renders the current block's program into hc's raw sink
 // (Options.evalBlock analogue, streaming).
-func (hc *HelperCall) fnWithKey(ctx Value, frame *DataFrame, key interface{}) error {
+func (hc *HelperCall) fnWithKey(ctx Value, frame *DataFrame, key any) error {
 	block := hc.s.curBlock()
 	if block == nil || block.Program == nil {
 		return nil

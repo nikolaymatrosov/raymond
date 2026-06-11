@@ -16,11 +16,11 @@ type adaptParityInner struct{ Name string }
 func (f *adaptParityFoo) Subject() string { return "subj" }
 
 func TestAdapt_StrAndTruthParity(t *testing.T) {
-	corpus := []interface{}{
+	corpus := []any{
 		nil, "", "x", SafeString("<b>"), true, false, 0, 5, -5,
 		int8(3), uint8(7), uint64(9), float32(3.14), 3.14, 0.0,
-		[]string{"a", "b"}, []interface{}{1, "x"}, []int{},
-		map[string]interface{}{"a": 1}, map[string]string{},
+		[]string{"a", "b"}, []any{1, "x"}, []int{},
+		map[string]any{"a": 1}, map[string]string{},
 		adaptParityInner{Name: "n"}, &adaptParityInner{Name: "n"},
 	}
 
@@ -98,7 +98,7 @@ func TestAdapt_StructLookup(t *testing.T) {
 
 func TestAdapt_MapAndSliceLookup(t *testing.T) {
 	// map lookup
-	m := map[string]interface{}{"foo": "bar", "num": 99}
+	m := map[string]any{"foo": "bar", "num": 99}
 	mv := adaptValue(m)
 	fooVal, ok := mv.asData().Lookup("foo")
 	if !ok {
