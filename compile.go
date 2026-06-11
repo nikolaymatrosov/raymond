@@ -69,25 +69,29 @@ func Compile(source string, limits Limits) (*Compiled, error) {
 }
 
 // RegisterHelper registers a streaming helper on this template.
-func (c *Compiled) RegisterHelper(name string, h Helper) {
+// Returns an error if a helper with the given name is already registered.
+func (c *Compiled) RegisterHelper(name string, h Helper) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if _, ok := c.helpers[name]; ok {
-		panic(fmt.Errorf("Helper already registered: %s", name))
+		return fmt.Errorf("Helper already registered: %s", name)
 	}
 	c.helpers[name] = h
+	return nil
 }
 
 // RegisterPartial registers a compiled partial on this template.
 // Helpers and partials referenced inside a partial resolve against the
 // template that started the render, matching the legacy engine.
-func (c *Compiled) RegisterPartial(name string, p *Compiled) {
+// Returns an error if a partial with the given name is already registered.
+func (c *Compiled) RegisterPartial(name string, p *Compiled) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if _, ok := c.partials[name]; ok {
-		panic(fmt.Errorf("Partial already registered: %s", name))
+		return fmt.Errorf("Partial already registered: %s", name)
 	}
 	c.partials[name] = p
+	return nil
 }
 
 // Execute renders into w with arbitrary Go data via the reflection

@@ -130,6 +130,20 @@ func TestExecute_StreamingHelper(t *testing.T) {
 	}
 }
 
+func TestCompiledRegisterHelper_DuplicateReturnsError(t *testing.T) {
+	c, err := Compile("{{x}}", Limits{})
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	h := HelperFunc(func(hc *HelperCall) error { return nil })
+	if err := c.RegisterHelper("dup_d4", h); err != nil {
+		t.Fatalf("first register: %v", err)
+	}
+	if err := c.RegisterHelper("dup_d4", h); err == nil {
+		t.Fatal("re-registering must return an error, got nil")
+	}
+}
+
 func TestExecute_CompiledPartial(t *testing.T) {
 	p, err := Compile("[{{x}}]", Limits{})
 	if err != nil {
