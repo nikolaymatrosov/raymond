@@ -2,6 +2,18 @@
 
 ### Unreleased
 
+- [IMPROVEMENT] Streaming-core rewrite: new `Compile` / `Execute` API with
+  unified `Limits` struct (`MaxTemplateSize`, `MaxNodes`, `MaxDepth`,
+  `MaxOutputBytes`, `MaxSubstitutions`, `MaxSteps`). New sentinel errors
+  `ErrOutputLimit`, `ErrSubstitutionLimit`, `ErrStepLimit`,
+  `ErrTemplateTooComplex`, `ErrTemplateTooLarge`; all wrapped by `LimitError`
+  (which exposes `Kind` and `Limit` and unwraps to the sentinel for
+  `errors.Is`). New streaming helper API: `Helper` interface,
+  `HelperFunc` adapter, and `HelperCall` invocation context. New parser
+  entry point `parser.ParseWithLimits`. The rendering engine was rewritten
+  to stream into `io.Writer` with plain error returns; no behavior change
+  for existing entry points — the full compatibility suite passes unchanged.
+
 - [IMPROVEMENT] Feature 002 — Render Output Budget: opt-in render output
   budget via `(*Template).ExecTo`, `(*Template).ExecToWith`, and
   `(*Template).ExecToWithOptions`, plus a `RenderOptions` struct
@@ -48,7 +60,6 @@
   - `lexer.DUMP_TOKEN_POS`
   - `lexer.DUMP_ALL_TOKENS_VAL`
 
-
 ### Raymond 1.1.0 _(June 15, 2015)_
 
 - Permits templates references with lowercase versions of struct fields.
@@ -59,4 +70,4 @@
 
 ### Raymond 1.0.0 _(June 09, 2015)_
 
-- This is the first release. Raymond supports almost all handlebars features. See https://github.com/aymerick/raymond#limitations for a list of differences with the javascript implementation.
+- This is the first release. Raymond supports almost all handlebars features. See <https://github.com/aymerick/raymond#limitations> for a list of differences with the javascript implementation.

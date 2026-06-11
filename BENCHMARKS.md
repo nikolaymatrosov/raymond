@@ -25,7 +25,6 @@ With:
     - handlebars.js #8cba84df119c317fcebc49fb285518542ca9c2d0
     - raymond #7bbaaf50ed03c96b56687d7fa6c6e04e02375a98
 
-
 ## handlebars.js (ops/ms)
 
         arguments          198 ±4 (5)
@@ -44,7 +43,6 @@ With:
         subexpression      141 ±2 (4)
         variables         2671 ±83 (4)
 
-
 ## raymond
 
         BenchmarkArguments          200000     6642 ns/op   151 ops/ms
@@ -62,3 +60,49 @@ With:
         BenchmarkString             1000000    1879 ns/op   532 ops/ms
         BenchmarkSubExpression      300000     4935 ns/op   203 ops/ms
         BenchmarkVariables          200000     6478 ns/op   154 ops/ms
+
+## Feature 003 — Streaming-Core Rewrite _(2026-06-11)_
+
+Hardware: Apple M1 Pro (darwin/arm64), Go 1.26.1
+Command: `go test -bench . -benchmem -run '^$' -count=3 .`
+
+The rendering engine was rewritten to stream into `io.Writer` with plain error
+returns (no per-program `strings.Builder` or string concat). Numbers are the
+median of the three `-count=3` runs.
+
+### Legacy-path gate (SC-004 / SC-005)
+
+| Benchmark                       | baseline ns/op | new ns/op | delta | baseline B/op | new B/op | baseline allocs | new allocs |
+|---------------------------------|---------------:|----------:|------:|--------------:|---------:|----------------:|-----------:|
+| `BenchmarkExec_NoBudget_Legacy` |           5188 |      4628 |  -11% |          5170 |     4776 |             120 |         70 |
+| `BenchmarkExecTo_WithBudget`    |           5240 |      4908 |   -6% |          5138 |     4888 |             122 |         87 |
+
+SC-004 (≤10% overhead for budgeted path vs. no-budget): **PASS** — budgeted
+path is 6% slower than the no-budget path (4908 vs. 4628 ns/op).
+SC-005 (no regression on legacy path): **PASS** — `BenchmarkExec_NoBudget_Legacy`
+is 11% faster than the Feature-002 baseline (4628 vs. 5188 ns/op).
+
+### Full benchmark suite vs. original raymond baseline
+
+| Benchmark                   | baseline ns/op | new ns/op |  delta | new B/op | new allocs |
+|-----------------------------|---------------:|----------:|-------:|---------:|-----------:|
+| `BenchmarkArguments`        |           6642 |      2341 |  -65%  |     3280 |         38 |
+| `BenchmarkArrayEach`        |          19584 |      3479 |  -82%  |     3368 |         63 |
+| `BenchmarkArrayMustache`    |          17305 |      3357 |  -81%  |     3040 |         57 |
+| `BenchmarkComplex`          |          50270 |      7386 |  -85%  |     5336 |        107 |
+| `BenchmarkData`             |          25551 |      5002 |  -80%  |     3752 |         83 |
+| `BenchmarkDepth1`           |          20162 |      3394 |  -83%  |     3328 |         62 |
+| `BenchmarkDepth2`           |          47782 |      9081 |  -81%  |     7408 |        138 |
+| `BenchmarkObjectMustache`   |           7668 |      1631 |  -79%  |     1160 |         26 |
+| `BenchmarkObject`           |           8843 |      1757 |  -80%  |     1464 |         31 |
+| `BenchmarkPartialRecursion` |          23139 |      4403 |  -81%  |     3816 |         70 |
+| `BenchmarkPartial`          |          31015 |      4418 |  -86%  |     3208 |         65 |
+| `BenchmarkPath`             |           8997 |      2576 |  -71%  |     1240 |         47 |
+| `BenchmarkString`           |           1879 |       240 |  -87%  |      592 |          9 |
+| `BenchmarkSubExpression`    |           4935 |      1117 |  -77%  |     1464 |         28 |
+| `BenchmarkVariables`        |           6478 |      1137 |  -82%  |      840 |         21 |
+
+No regressions. Every benchmark improved by 65–87% in wall-clock time compared
+to the original raymond baseline. The gains come from eliminating the per-call
+`strings.Builder` accumulator and replacing recursive `evalVisitor` string
+concatenation with direct `io.Writer` writes.
