@@ -120,6 +120,12 @@ func lookupMethod(ctx reflect.Value, name string) (reflect.Value, bool) {
 	if ctx.Kind() != reflect.Interface && ctx.CanAddr() {
 		ctx = ctx.Addr()
 	}
+	// A type with no methods can't match — skip MethodByName and the
+	// strings.Title fallback allocation entirely. This is the common case
+	// for map/struct contexts (e.g. map[string]interface{}).
+	if ctx.NumMethod() == 0 {
+		return reflect.Value{}, false
+	}
 	method := ctx.MethodByName(name)
 	if !method.IsValid() {
 		method = ctx.MethodByName(strings.Title(name)) //nolint:staticcheck
