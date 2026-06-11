@@ -23,6 +23,22 @@ type Template struct {
 	partials map[string]*partial
 	report   ParseReport  // populated by ParseWithOptions when the visitor runs
 	mutex    sync.RWMutex // protects helpers and partials
+
+	// seam closures are pure functions of tpl (they resolve helpers and
+	// partials dynamically at call time), so they are built once and
+	// reused across executes instead of reallocated per MustExec.
+	seamOnce     sync.Once
+	helperSeamF  func(string) coreHelper
+	partialSeamF func(string) (*ast.Program, error)
+}
+
+// seams returns the memoized helper/partial resolution closures.
+func (tpl *Template) seams() (func(string) coreHelper, func(string) (*ast.Program, error)) {
+	tpl.seamOnce.Do(func() {
+		tpl.helperSeamF = tpl.helperSeam()
+		tpl.partialSeamF = tpl.partialSeam()
+	})
+	return tpl.helperSeamF, tpl.partialSeamF
 }
 
 // newTemplate instanciate a new template without parsing it
@@ -347,17 +363,17 @@ func (tpl *Template) execute(c context.Context, w io.Writer, cap *cappedWriter,
 		frame = NewDataFrame()
 	}
 
+	helpers, partials := tpl.seams()
 	s := &state{
 		tctx:         c,
 		w:            w,
 		cap:          cap,
 		limits:       limits,
 		nextCtxCheck: ctxCheckInterval,
-		helpers:      tpl.helperSeam(),
-		partials:     tpl.partialSeam(),
+		helpers:      helpers,
+		partials:     partials,
 		ctxStack:     []Value{adaptValue(ctx)},
 		frame:        frame,
-		exprFunc:     make(map[*ast.Expression]bool),
 	}
 	return s.renderProgram(tpl.program)
 }

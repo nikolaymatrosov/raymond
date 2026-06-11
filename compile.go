@@ -20,6 +20,21 @@ type Compiled struct {
 	helpers  map[string]Helper
 	partials map[string]*Compiled
 	mu       sync.RWMutex
+
+	// seam closures are pure functions of c; built once and reused
+	// across executes (see Template.seams).
+	seamOnce     sync.Once
+	helperSeamF  func(string) coreHelper
+	partialSeamF func(string) (*ast.Program, error)
+}
+
+// seams returns the memoized helper/partial resolution closures.
+func (c *Compiled) seams() (func(string) coreHelper, func(string) (*ast.Program, error)) {
+	c.seamOnce.Do(func() {
+		c.helperSeamF = c.helperSeam()
+		c.partialSeamF = c.partialSeam()
+	})
+	return c.helperSeamF, c.partialSeamF
 }
 
 // Compile parses source under the given limits. Limits{} is unlimited.
@@ -97,17 +112,17 @@ func (c *Compiled) exec(tctx context.Context, w io.Writer, root Value) (err erro
 		sink = capped
 	}
 
+	helperSeam, partialSeam := c.seams()
 	s := &state{
 		tctx:         tctx,
 		w:            sink,
 		cap:          capped,
 		limits:       c.limits,
 		nextCtxCheck: ctxCheckInterval,
-		helpers:      c.helperSeam(),
-		partials:     c.partialSeam(),
+		helpers:      helperSeam,
+		partials:     partialSeam,
 		ctxStack:     []Value{root},
 		frame:        NewDataFrame(),
-		exprFunc:     make(map[*ast.Expression]bool),
 	}
 
 	err = s.renderProgram(c.program)

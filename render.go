@@ -567,9 +567,12 @@ func (s *state) invokeFunc(fnVal Value, exprRoot bool) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
+		if s.exprFunc == nil {
+			s.exprFunc = make(map[*ast.Expression]bool)
+		}
 		s.exprFunc[expr] = true
 	} else {
-		opts = &Options{s: s, hash: make(map[string]interface{})}
+		opts = &Options{s: s}
 	}
 	return fnVal.fn.call(s, opts)
 }

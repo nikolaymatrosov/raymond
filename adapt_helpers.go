@@ -109,7 +109,10 @@ func rawParams(params []Value) []interface{} {
 }
 
 func rawHash(hash map[string]Value) map[string]interface{} {
-	out := make(map[string]interface{})
+	if len(hash) == 0 {
+		return nil
+	}
+	out := make(map[string]interface{}, len(hash))
 	for k, v := range hash {
 		out[k] = v.Interface()
 	}
