@@ -96,7 +96,7 @@ func (rd *reflectData) Lookup(name string) (Value, bool) {
 			result = ctx.MapIndex(nameVal)
 		}
 	case reflect.Array, reflect.Slice:
-		if i, err := strconv.Atoi(name); (err == nil) && (i < ctx.Len()) {
+		if i, err := strconv.Atoi(name); (err == nil) && (i >= 0) && (i < ctx.Len()) {
 			result = ctx.Index(i)
 		}
 	}

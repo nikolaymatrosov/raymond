@@ -129,4 +129,9 @@ func TestAdapt_MapAndSliceLookup(t *testing.T) {
 	if got := bVal.Str(); got != "b" {
 		t.Errorf("slice Lookup(\"1\").Str() = %q, want \"b\"", got)
 	}
+
+	// negative indices must not panic, just fail to resolve
+	if _, ok := sv.data.Lookup("-1"); ok {
+		t.Error("Lookup(-1) should not resolve")
+	}
 }
