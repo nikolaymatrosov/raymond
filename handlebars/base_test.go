@@ -1,7 +1,6 @@
 package handlebars
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"slices"
@@ -36,7 +35,7 @@ func launchTests(t *testing.T, tests []Test) {
 		if dumpTpl {
 			filename := strconv.Itoa(dumpTplNb)
 			if err := os.WriteFile(path.Join(".", "dump_tpl", filename), []byte(test.input), 0644); err != nil {
-				panic(err)
+				t.Fatalf("%v", err)
 			}
 			dumpTplNb++
 		}
@@ -82,7 +81,7 @@ func launchTests(t *testing.T, tests []Test) {
 				} else {
 					expectedStr, ok := test.output.(string)
 					if !ok {
-						panic(fmt.Errorf("Erroneous test output description: %q", test.output))
+						t.Fatalf("Erroneous test output description: %q", test.output)
 					}
 
 					if expectedStr != output {

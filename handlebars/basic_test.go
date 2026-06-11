@@ -639,7 +639,7 @@ func TestBasicErrors(t *testing.T) {
 
 		match, errMatch := regexp.MatchString(expectedError, fmt.Sprint(err))
 		if errMatch != nil {
-			panic("Failed to match regexp")
+			t.Fatalf("Failed to match regexp: %v", errMatch)
 		}
 
 		if !match {

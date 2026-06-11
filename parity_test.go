@@ -68,7 +68,7 @@ func runParity(t *testing.T, tests []Test) {
 
 		expectedStr, ok := test.output.(string)
 		if !ok {
-			panic(fmt.Errorf("Erroneous test output description: %q", test.output))
+			t.Fatalf("Erroneous test output description: %q", test.output)
 		}
 		if expectedStr != output {
 			t.Errorf("Parity test '%s' failed\ninput:\n\t'%s'\ndata:\n\t%s\npartials:\n\t%s\nexpected\n\t%q\ngot\n\t%q", test.name, test.input, Str(test.data), Str(test.partials), expectedStr, output)
@@ -96,7 +96,7 @@ func runParityErrors(t *testing.T, tests []Test) {
 				for _, expectedStr := range expectedArr {
 					match, errMatch = regexp.MatchString(regexp.QuoteMeta(expectedStr), fmt.Sprint(err))
 					if errMatch != nil {
-						panic("Failed to match regexp")
+						t.Fatalf("Failed to match regexp: %v", errMatch)
 					}
 					if match {
 						break
@@ -108,12 +108,12 @@ func runParityErrors(t *testing.T, tests []Test) {
 		} else {
 			expectedStr, ok := test.output.(string)
 			if !ok {
-				panic(fmt.Errorf("Erroneous test output description: %q", test.output))
+				t.Fatalf("Erroneous test output description: %q", test.output)
 			}
 			if expectedStr != "" {
 				match, errMatch = regexp.MatchString(regexp.QuoteMeta(expectedStr), fmt.Sprint(err))
 				if errMatch != nil {
-					panic("Failed to match regexp")
+					t.Fatalf("Failed to match regexp: %v", errMatch)
 				}
 			} else {
 				match = true

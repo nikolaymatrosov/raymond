@@ -66,7 +66,7 @@ func launchTests(t *testing.T, tests []Test) {
 				} else {
 					expectedStr, ok := test.output.(string)
 					if !ok {
-						panic(fmt.Errorf("Erroneous test output description: %q", test.output))
+						t.Fatalf("Erroneous test output description: %q", test.output)
 					}
 
 					if expectedStr != output {
@@ -125,7 +125,7 @@ func launchErrorTests(t *testing.T, tests []Test) {
 						for _, expectedStr := range expectedArr {
 							match, errMatch = regexp.MatchString(regexp.QuoteMeta(expectedStr), fmt.Sprint(err))
 							if errMatch != nil {
-								panic("Failed to match regexp")
+								t.Fatalf("Failed to match regexp: %v", errMatch)
 							}
 
 							if match {
@@ -139,13 +139,13 @@ func launchErrorTests(t *testing.T, tests []Test) {
 				} else {
 					expectedStr, ok := test.output.(string)
 					if !ok {
-						panic(fmt.Errorf("Erroneous test output description: %q", test.output))
+						t.Fatalf("Erroneous test output description: %q", test.output)
 					}
 
 					if expectedStr != "" {
 						match, errMatch = regexp.MatchString(regexp.QuoteMeta(expectedStr), fmt.Sprint(err))
 						if errMatch != nil {
-							panic("Failed to match regexp")
+							t.Fatalf("Failed to match regexp: %v", errMatch)
 						}
 					} else {
 						// nothing to test

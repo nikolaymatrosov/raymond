@@ -170,7 +170,7 @@ func TestParserErrors(t *testing.T) {
 		} else if test.output != "" {
 			matched, errMatch := regexp.MatchString(regexp.QuoteMeta(test.output), fmt.Sprint(err))
 			if errMatch != nil {
-				panic("Failed to match regexp")
+				t.Fatalf("Failed to match regexp: %v", errMatch)
 			}
 
 			if !matched {
