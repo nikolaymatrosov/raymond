@@ -67,10 +67,12 @@ type Value struct {
 	// re-invokes a method's func result once (eval.go:358-364), but a
 	// plain field func only once total.
 	fromMethod bool
-	// strFn, when set by the adapter, computes Str() with full legacy
-	// fidelity (Stringer/error promotion, panics on chan/func).
-	strFn func() string
-	raw   interface{}
+	// legacyStr marks values whose Str() must run through the package
+	// Str(raw) for full legacy fidelity (Stringer/error promotion,
+	// panics on chan/func). raw already holds the value, so no closure
+	// is needed — the flag alone avoids a per-value allocation.
+	legacyStr bool
+	raw       interface{}
 }
 
 func (v Value) Kind() Kind             { return v.kind }
@@ -101,8 +103,8 @@ func (v Value) Str() string {
 		// strValue's own recursion (legacy promotion rules); synthetic
 		// sliceList values concatenate element Strs (eval.go:540-556
 		// array-context results were stringified element-wise too)
-		if v.strFn != nil {
-			return v.strFn()
+		if v.legacyStr {
+			return Str(v.raw)
 		}
 		var sb strings.Builder
 		for i := 0; i < v.list.Len(); i++ {
@@ -110,8 +112,8 @@ func (v Value) Str() string {
 		}
 		return sb.String()
 	default:
-		if v.strFn != nil {
-			return v.strFn()
+		if v.legacyStr {
+			return Str(v.raw)
 		}
 		return ""
 	}

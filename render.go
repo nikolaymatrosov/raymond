@@ -303,8 +303,9 @@ func (s *state) evalParam(node ast.Node) (Value, error) {
 // skipped. Returns both Value map and raw map.
 func (s *state) evalHash(node *ast.Hash) (map[string]Value, map[string]interface{}, error) {
 	s.at(node)
-	values := make(map[string]Value)
-	raws := make(map[string]interface{})
+	n := len(node.Pairs)
+	values := make(map[string]Value, n)
+	raws := make(map[string]interface{}, n)
 	for _, pair := range node.Pairs {
 		s.at(pair)
 		v, err := s.evalParam(pair.Val)
@@ -317,6 +318,26 @@ func (s *state) evalHash(node *ast.Hash) (map[string]Value, map[string]interface
 		}
 	}
 	return values, raws, nil
+}
+
+// evalHashValues is evalHash without the parallel raw map — used by the
+// core helper-call path, which only needs the Value map (legacy helpers
+// derive their raw map lazily via rawHash in callCore). Skipping the
+// raw map here was ~160 MB/op of the BenchmarkArguments allocation.
+func (s *state) evalHashValues(node *ast.Hash) (map[string]Value, error) {
+	s.at(node)
+	values := make(map[string]Value, len(node.Pairs))
+	for _, pair := range node.Pairs {
+		s.at(pair)
+		v, err := s.evalParam(pair.Val)
+		if err != nil {
+			return nil, err
+		}
+		if v.IsValid() && v.Interface() != nil {
+			values[pair.Key] = v
+		}
+	}
+	return values, nil
 }
 
 // isHelperCall ports eval.go:575-580.
@@ -339,18 +360,21 @@ func (s *state) findHelper(name string) coreHelper {
 // callHelper evaluates params/hash and dispatches to the helper.
 func (s *state) callHelper(name string, helper coreHelper, node *ast.Expression, pos callPosition) (Value, error) {
 	var params []Value
-	for _, paramNode := range node.Params {
-		p, err := s.evalParam(paramNode)
-		if err != nil {
-			return Value{}, err
+	if n := len(node.Params); n > 0 {
+		params = make([]Value, n)
+		for i, paramNode := range node.Params {
+			p, err := s.evalParam(paramNode)
+			if err != nil {
+				return Value{}, err
+			}
+			params[i] = p
 		}
-		params = append(params, p)
 	}
 
 	var hash map[string]Value
 	if node.Hash != nil {
 		var err error
-		hash, _, err = s.evalHash(node.Hash)
+		hash, err = s.evalHashValues(node.Hash)
 		if err != nil {
 			return Value{}, err
 		}
@@ -553,12 +577,15 @@ func (s *state) invokeFunc(fnVal Value, exprRoot bool) (Value, error) {
 // helperOptions ports eval.go:672-686 for lambda invocation.
 func (s *state) helperOptions(node *ast.Expression) (*Options, error) {
 	var params []interface{}
-	for _, paramNode := range node.Params {
-		p, err := s.evalParam(paramNode)
-		if err != nil {
-			return nil, err
+	if n := len(node.Params); n > 0 {
+		params = make([]interface{}, n)
+		for i, paramNode := range node.Params {
+			p, err := s.evalParam(paramNode)
+			if err != nil {
+				return nil, err
+			}
+			params[i] = p.Interface()
 		}
-		params = append(params, p.Interface())
 	}
 
 	var hash map[string]interface{}

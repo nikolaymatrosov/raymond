@@ -47,13 +47,13 @@ func adaptReflectValue(rv reflect.Value) Value {
 		return Value{kind: KindFloat, truth: truth, f: ind.Float(), raw: raw}
 	case reflect.Array, reflect.Slice:
 		rd := &reflectData{rv: ind}
-		return Value{kind: KindList, truth: truth, list: rd, data: rd, raw: raw, strFn: legacyStrFn(raw)}
+		return Value{kind: KindList, truth: truth, list: rd, data: rd, raw: raw, legacyStr: true}
 	case reflect.Map, reflect.Struct:
 		rd := &reflectData{rv: ind}
-		return Value{kind: KindMap, truth: truth, data: rd, raw: raw, strFn: legacyStrFn(raw)}
+		return Value{kind: KindMap, truth: truth, data: rd, raw: raw, legacyStr: true}
 	case reflect.Func:
 		fv := funcValue(&legacyFunc{name: "", fn: ind}, false, raw)
-		fv.strFn = legacyStrFn(raw)
+		fv.legacyStr = true
 		return fv
 	default:
 		return opaqueValue(raw, truth)
@@ -61,17 +61,7 @@ func adaptReflectValue(rv reflect.Value) Value {
 }
 
 func opaqueValue(raw interface{}, truth bool) Value {
-	return Value{kind: KindOpaque, truth: truth, raw: raw, strFn: legacyStrFn(raw)}
-}
-
-// legacyStrFn defers to Str for full fidelity on non-scalar kinds. It
-// deliberately stringifies the interface value, NOT the addressable
-// reflect.Value: the old engine always called Str(expr) on an
-// interface{} (eval.go:826, 796), so a fresh non-addressable
-// reflect.Value decides Stringer/error promotion, funcs panic with
-// "Can't print value", and slices recurse inside strValue.
-func legacyStrFn(raw interface{}) func() string {
-	return func() string { return Str(raw) }
+	return Value{kind: KindOpaque, truth: truth, raw: raw, legacyStr: true}
 }
 
 // reflectData adapts any reflected container. Lookup ports
@@ -87,7 +77,7 @@ func (rd *reflectData) Lookup(name string) (Value, bool) {
 	// method check first (eval.go:328-329)
 	if m, ok := lookupMethod(ctx, name); ok {
 		fv := funcValue(&legacyFunc{name: name, fn: m}, true, m.Interface())
-		fv.strFn = legacyStrFn(m.Interface())
+		fv.legacyStr = true
 		return fv, true
 	}
 
@@ -119,7 +109,7 @@ func (rd *reflectData) Lookup(name string) (Value, bool) {
 	ind, _ := indirect(result)
 	if ind.Kind() == reflect.Func {
 		fv := funcValue(&legacyFunc{name: name, fn: ind}, false, ind.Interface())
-		fv.strFn = legacyStrFn(ind.Interface())
+		fv.legacyStr = true
 		return fv, true
 	}
 	return adaptReflectValue(result), true
