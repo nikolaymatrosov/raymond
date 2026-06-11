@@ -745,7 +745,7 @@ Expected — only these:
 - `helper.go` `mustRegisterHelper`
 - `escape.go:43`, `string.go:33` (category-E guards)
 - `handlebars/basic_test.go:437` (intentional fixture)
-- `parser/parser_test.go:190` (`Example()`)
+- `parser/parser_test.go` `Example()`, and `template_test.go` / `raymond_test.go` `Example*` functions — Go example functions have no `*testing.T`, and `panic(err)` is the idiomatic example convention, so these are keeps too.
 
 - [ ] **Full green**
 
