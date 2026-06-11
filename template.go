@@ -155,54 +155,60 @@ func (tpl *Template) Clone() *Template {
 	defer tpl.mutex.RUnlock()
 
 	for name, helper := range tpl.helpers {
-		result.RegisterHelper(name, helper.Interface())
+		_ = result.RegisterHelper(name, helper.Interface())
 	}
 
 	for name, partial := range tpl.partials {
-		result.addPartial(name, partial.source, partial.tpl)
+		_ = result.addPartial(name, partial.source, partial.tpl)
 	}
 
 	return result
 }
 
-// RegisterHelper registers a helper for that template.
-func (tpl *Template) RegisterHelper(name string, helper any) {
+// RegisterHelper registers a helper for that template. Returns an error if a
+// streaming helper is supplied (unsupported on Template) or the name is taken
+// or the helper is invalid.
+func (tpl *Template) RegisterHelper(name string, helper any) error {
 	switch helper.(type) {
 	case Helper, func(*HelperCall) error:
-		panic(fmt.Sprintf("Streaming helpers are not supported on Template; register %s globally with RegisterHelper or on a Compiled template", name))
+		return fmt.Errorf("Streaming helpers are not supported on Template; register %s globally with RegisterHelper or on a Compiled template", name)
 	}
 
 	tpl.mutex.Lock()
 	defer tpl.mutex.Unlock()
 
 	if tpl.helpers[name] != zero {
-		panic(fmt.Sprintf("Helper %s already registered", name))
+		return fmt.Errorf("Helper %s already registered", name)
 	}
 
 	val := reflect.ValueOf(helper)
 	if err := ensureValidHelper(name, val); err != nil {
-		panic(err)
+		return err
 	}
-
 	tpl.helpers[name] = val
+	return nil
 }
 
 // RegisterHelpers registers several helpers for that template.
-func (tpl *Template) RegisterHelpers(helpers map[string]any) {
+// Returns the first error encountered, if any.
+func (tpl *Template) RegisterHelpers(helpers map[string]any) error {
 	for name, helper := range helpers {
-		tpl.RegisterHelper(name, helper)
+		if err := tpl.RegisterHelper(name, helper); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (tpl *Template) addPartial(name string, source string, template *Template) {
+func (tpl *Template) addPartial(name string, source string, template *Template) error {
 	tpl.mutex.Lock()
 	defer tpl.mutex.Unlock()
 
 	if tpl.partials[name] != nil {
-		panic(fmt.Sprintf("Partial %s already registered", name))
+		return fmt.Errorf("Partial %s already registered", name)
 	}
-
 	tpl.partials[name] = newPartial(name, source, template)
+	return nil
 }
 
 func (tpl *Template) findPartial(name string) *partial {
@@ -213,15 +219,19 @@ func (tpl *Template) findPartial(name string) *partial {
 }
 
 // RegisterPartial registers a partial for that template.
-func (tpl *Template) RegisterPartial(name string, source string) {
-	tpl.addPartial(name, source, nil)
+func (tpl *Template) RegisterPartial(name string, source string) error {
+	return tpl.addPartial(name, source, nil)
 }
 
 // RegisterPartials registers several partials for that template.
-func (tpl *Template) RegisterPartials(partials map[string]string) {
+// Returns the first error encountered, if any.
+func (tpl *Template) RegisterPartials(partials map[string]string) error {
 	for name, partial := range partials {
-		tpl.RegisterPartial(name, partial)
+		if err := tpl.RegisterPartial(name, partial); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // RegisterPartialFile reads given file and registers its content as a partial with given name.
@@ -231,9 +241,7 @@ func (tpl *Template) RegisterPartialFile(filePath string, name string) error {
 		return err
 	}
 
-	tpl.RegisterPartial(name, string(b))
-
-	return nil
+	return tpl.RegisterPartial(name, string(b))
 }
 
 // RegisterPartialFiles reads several files and registers them as partials, the filename base is used as the partial name.
@@ -254,8 +262,8 @@ func (tpl *Template) RegisterPartialFiles(filePaths ...string) error {
 }
 
 // RegisterPartialTemplate registers an already parsed partial for that template.
-func (tpl *Template) RegisterPartialTemplate(name string, template *Template) {
-	tpl.addPartial(name, "", template)
+func (tpl *Template) RegisterPartialTemplate(name string, template *Template) error {
+	return tpl.addPartial(name, "", template)
 }
 
 // Exec evaluates template with given context.
@@ -389,9 +397,9 @@ func (tpl *Template) helperSeam() func(string) coreHelper {
 		h := tpl.helpers[name]
 		tpl.mutex.RUnlock()
 
-		// Template-local helpers are add-only (RegisterHelper panics on
-		// a duplicate and there is no per-template remove), so a resolved
-		// wrapper never goes stale — cache it to avoid reallocating
+		// Template-local helpers are add-only (RegisterHelper returns an
+		// error on a duplicate and there is no per-template remove), so a
+		// resolved wrapper never goes stale — cache it to avoid reallocating
 		// &legacyHelper on every call. Globals are NOT cached here:
 		// RemoveHelper/RemoveAllHelpers could invalidate them.
 		if h != zero {
