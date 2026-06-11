@@ -45,20 +45,28 @@ func ParseWithLimits(input string, limits Limits) (*ast.Program, error) {
 	return newParser(input, limits).parse()
 }
 
-// countNode charges one AST node against the budget. It panics with a
-// *LimitError, recovered by errRecover like every other parser error.
+// countNode charges one AST node against the budget. It records a bare
+// *LimitError in p.err (first error wins) like every other parser error.
+// Once an error is sticky, it stops counting so the node counter freezes
+// at the breach point (the same place the old panic unwound the stack).
 func (p *parser) countNode() {
+	if p.err != nil {
+		return
+	}
 	p.nodeCount++
 	if p.limits.MaxNodes > 0 && p.nodeCount > p.limits.MaxNodes {
-		panic(&LimitError{Kind: "nodes", Limit: p.limits.MaxNodes})
+		p.err = &LimitError{Kind: "nodes", Limit: p.limits.MaxNodes}
 	}
 }
 
 // enterNesting tracks descent into a program or subexpression.
 func (p *parser) enterNesting() {
+	if p.err != nil {
+		return
+	}
 	p.depth++
 	if p.limits.MaxDepth > 0 && p.depth > p.limits.MaxDepth {
-		panic(&LimitError{Kind: "depth", Limit: p.limits.MaxDepth})
+		p.err = &LimitError{Kind: "depth", Limit: p.limits.MaxDepth}
 	}
 }
 

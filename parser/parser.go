@@ -4,7 +4,6 @@ package parser
 import (
 	"fmt"
 	"regexp"
-	"runtime"
 	"strconv"
 
 	"github.com/aymerick/raymond/ast"
@@ -33,6 +32,9 @@ type parser struct {
 	limits    Limits
 	nodeCount int
 	depth     int
+
+	// First error encountered; sticky, set via the err* helpers
+	err error
 }
 
 var (
@@ -55,60 +57,49 @@ func Parse(input string) (*ast.Program, error) {
 }
 
 // parse runs the analysis on the parser's input.
-func (p *parser) parse() (result *ast.Program, err error) {
-	// recover error
-	defer errRecover(&err)
-
+func (p *parser) parse() (*ast.Program, error) {
 	// parse
-	result = p.parseProgram()
+	result := p.parseProgram()
+	if p.err != nil {
+		return nil, p.err
+	}
 
 	// check last token
 	token := p.shift()
 	if token.Kind != lexer.TokenEOF {
 		// Parsing ended before EOF
-		errToken(token, "Syntax error")
+		p.errToken(token, "Syntax error")
+	}
+	if p.err != nil {
+		return nil, p.err
 	}
 
 	// fix whitespaces
 	processWhitespaces(result)
 
-	// named returned values
-	return
+	return result, nil
 }
 
-// errRecover recovers parsing panic
-func errRecover(errp *error) {
-	e := recover()
-	if e != nil {
-		switch err := e.(type) {
-		case runtime.Error:
-			panic(e)
-		case error:
-			*errp = err
-		default:
-			panic(e)
-		}
+// setErr records the first parse error (sticky); later calls are ignored.
+func (p *parser) setErr(err error, line int) {
+	if p.err == nil {
+		p.err = fmt.Errorf("Parse error on line %d:\n%s", line, err)
 	}
 }
 
-// errPanic panics
-func errPanic(err error, line int) {
-	panic(fmt.Errorf("Parse error on line %d:\n%s", line, err))
+// errNode records an error with given node infos
+func (p *parser) errNode(node ast.Node, msg string) {
+	p.setErr(fmt.Errorf("%s\nNode: %s", msg, node), node.Location().Line)
 }
 
-// errNode panics with given node infos
-func errNode(node ast.Node, msg string) {
-	errPanic(fmt.Errorf("%s\nNode: %s", msg, node), node.Location().Line)
+// errToken records an error with given Token infos
+func (p *parser) errToken(tok *lexer.Token, msg string) {
+	p.setErr(fmt.Errorf("%s\nToken: %s", msg, tok), tok.Line)
 }
 
-// errNode panics with given Token infos
-func errToken(tok *lexer.Token, msg string) {
-	errPanic(fmt.Errorf("%s\nToken: %s", msg, tok), tok.Line)
-}
-
-// errNode panics because of an unexpected Token kind
-func errExpected(expect lexer.TokenKind, tok *lexer.Token) {
-	errPanic(fmt.Errorf("Expecting %s, got: '%s'", expect, tok), tok.Line)
+// errExpected records an error because of an unexpected Token kind
+func (p *parser) errExpected(expect lexer.TokenKind, tok *lexer.Token) {
+	p.setErr(fmt.Errorf("Expecting %s, got: '%s'", expect, tok), tok.Line)
 }
 
 // program : statement*
@@ -119,7 +110,7 @@ func (p *parser) parseProgram() *ast.Program {
 	p.countNode()
 	result := ast.NewProgram(p.next().Pos, p.next().Line)
 
-	for p.isStatement() {
+	for p.err == nil && p.isStatement() {
 		result.AddStatement(p.parseStatement())
 	}
 
@@ -181,7 +172,7 @@ func (p *parser) parseContent() *ast.ContentStatement {
 	tok := p.shift()
 	if tok.Kind != lexer.TokenContent {
 		// @todo This check can be removed if content is optional in a raw block
-		errExpected(lexer.TokenContent, tok)
+		p.errExpected(lexer.TokenContent, tok)
 	}
 
 	p.countNode()
@@ -253,7 +244,7 @@ func (p *parser) parseRawBlock() *ast.BlockStatement {
 	// CLOSE_RAW_BLOCK
 	tok = p.shift()
 	if tok.Kind != lexer.TokenCloseRawBlock {
-		errExpected(lexer.TokenCloseRawBlock, tok)
+		p.errExpected(lexer.TokenCloseRawBlock, tok)
 	}
 
 	// content
@@ -270,7 +261,7 @@ func (p *parser) parseRawBlock() *ast.BlockStatement {
 	tok = p.shift()
 	if tok.Kind != lexer.TokenOpenEndRawBlock {
 		// should never happen as it is caught by lexer
-		errExpected(lexer.TokenOpenEndRawBlock, tok)
+		p.errExpected(lexer.TokenOpenEndRawBlock, tok)
 	}
 
 	// helperName
@@ -278,17 +269,17 @@ func (p *parser) parseRawBlock() *ast.BlockStatement {
 
 	closeName, ok := ast.HelperNameStr(endID)
 	if !ok {
-		errNode(endID, "Erroneous closing expression")
+		p.errNode(endID, "Erroneous closing expression")
 	}
 
 	if openName != closeName {
-		errNode(endID, fmt.Sprintf("%s doesn't match %s", openName, closeName))
+		p.errNode(endID, fmt.Sprintf("%s doesn't match %s", openName, closeName))
 	}
 
 	// CLOSE_RAW_BLOCK
 	tok = p.shift()
 	if tok.Kind != lexer.TokenCloseRawBlock {
-		errExpected(lexer.TokenCloseRawBlock, tok)
+		p.errExpected(lexer.TokenCloseRawBlock, tok)
 	}
 
 	return result
@@ -444,7 +435,7 @@ func (p *parser) parseOpenBlock() (*ast.BlockStatement, []string) {
 	// CLOSE
 	tokClose := p.shift()
 	if tokClose.Kind != lexer.TokenClose {
-		errExpected(lexer.TokenClose, tokClose)
+		p.errExpected(lexer.TokenClose, tokClose)
 	}
 
 	result.OpenStrip = ast.NewStrip(tok.Val, tokClose.Val)
@@ -458,7 +449,7 @@ func (p *parser) parseCloseBlock(block *ast.BlockStatement) {
 	// OPEN_ENDBLOCK
 	tok := p.shift()
 	if tok.Kind != lexer.TokenOpenEndBlock {
-		errExpected(lexer.TokenOpenEndBlock, tok)
+		p.errExpected(lexer.TokenOpenEndBlock, tok)
 	}
 
 	// helperName
@@ -466,18 +457,18 @@ func (p *parser) parseCloseBlock(block *ast.BlockStatement) {
 
 	closeName, ok := ast.HelperNameStr(endID)
 	if !ok {
-		errNode(endID, "Erroneous closing expression")
+		p.errNode(endID, "Erroneous closing expression")
 	}
 
 	openName := block.Expression.Canonical()
 	if openName != closeName {
-		errNode(endID, fmt.Sprintf("%s doesn't match %s", openName, closeName))
+		p.errNode(endID, fmt.Sprintf("%s doesn't match %s", openName, closeName))
 	}
 
 	// CLOSE
 	tokClose := p.shift()
 	if tokClose.Kind != lexer.TokenClose {
-		errExpected(lexer.TokenClose, tokClose)
+		p.errExpected(lexer.TokenClose, tokClose)
 	}
 
 	block.CloseStrip = ast.NewStrip(tok.Val, tokClose.Val)
@@ -509,7 +500,7 @@ func (p *parser) parseMustache() *ast.MustacheStatement {
 	// CLOSE | CLOSE_UNESCAPED
 	tokClose := p.shift()
 	if tokClose.Kind != closeToken {
-		errExpected(closeToken, tokClose)
+		p.errExpected(closeToken, tokClose)
 	}
 
 	result.Strip = ast.NewStrip(tok.Val, tokClose.Val)
@@ -534,7 +525,7 @@ func (p *parser) parsePartial() *ast.PartialStatement {
 	// CLOSE
 	tokClose := p.shift()
 	if tokClose.Kind != lexer.TokenClose {
-		errExpected(lexer.TokenClose, tokClose)
+		p.errExpected(lexer.TokenClose, tokClose)
 	}
 
 	result.Strip = ast.NewStrip(tok.Val, tokClose.Val)
@@ -567,7 +558,7 @@ func (p *parser) isParam() bool {
 func (p *parser) parseParams() []ast.Node {
 	var result []ast.Node
 
-	for p.isParam() {
+	for p.err == nil && p.isParam() {
 		result = append(result, p.parseParam())
 	}
 
@@ -591,7 +582,7 @@ func (p *parser) parseSexpr() *ast.SubExpression {
 	// CLOSE_SEXPR
 	tok = p.shift()
 	if tok.Kind != lexer.TokenCloseSexpr {
-		errExpected(lexer.TokenCloseSexpr, tok)
+		p.errExpected(lexer.TokenCloseSexpr, tok)
 	}
 
 	return result
@@ -601,8 +592,12 @@ func (p *parser) parseSexpr() *ast.SubExpression {
 func (p *parser) parseHash() *ast.Hash {
 	var pairs []*ast.HashPair
 
-	for p.isHashSegment() {
+	for p.err == nil && p.isHashSegment() {
 		pairs = append(pairs, p.parseHashSegment())
+	}
+
+	if p.err != nil {
+		return nil
 	}
 
 	firstLoc := pairs[0].Location()
@@ -646,18 +641,18 @@ func (p *parser) parseBlockParams() []string {
 	tok := p.shift()
 
 	// ID+
-	for p.isID() {
+	for p.err == nil && p.isID() {
 		result = append(result, p.shift().Val)
 	}
 
 	if len(result) == 0 {
-		errExpected(lexer.TokenID, p.next())
+		p.errExpected(lexer.TokenID, p.next())
 	}
 
 	// CLOSE_BLOCK_PARAMS
 	tok = p.shift()
 	if tok.Kind != lexer.TokenCloseBlockParams {
-		errExpected(lexer.TokenCloseBlockParams, tok)
+		p.errExpected(lexer.TokenCloseBlockParams, tok)
 	}
 
 	return result
@@ -679,7 +674,7 @@ func (p *parser) parseHelperName() ast.Node {
 		// NUMBER
 		p.shift()
 
-		val, isInt := parseNumber(tok)
+		val, isInt := p.parseNumber(tok)
 		p.countNode()
 		result = ast.NewNumberLiteral(tok.Pos, tok.Line, val, isInt, tok.Val)
 	case lexer.TokenString:
@@ -699,7 +694,7 @@ func (p *parser) parseHelperName() ast.Node {
 }
 
 // parseNumber parses a number
-func parseNumber(tok *lexer.Token) (result float64, isInt bool) {
+func (p *parser) parseNumber(tok *lexer.Token) (result float64, isInt bool) {
 	var valInt int
 	var err error
 
@@ -713,7 +708,7 @@ func parseNumber(tok *lexer.Token) (result float64, isInt bool) {
 
 		result, err = strconv.ParseFloat(tok.Val, 64)
 		if err != nil {
-			errToken(tok, fmt.Sprintf("Failed to parse number: %s", tok.Val))
+			p.errToken(tok, fmt.Sprintf("Failed to parse number: %s", tok.Val))
 		}
 	}
 
@@ -755,14 +750,14 @@ func (p *parser) parsePath(data bool) *ast.PathExpression {
 	// ID
 	tok = p.shift()
 	if tok.Kind != lexer.TokenID {
-		errExpected(lexer.TokenID, tok)
+		p.errExpected(lexer.TokenID, tok)
 	}
 
 	p.countNode()
 	result := ast.NewPathExpression(tok.Pos, tok.Line, data)
 	result.Part(tok.Val)
 
-	for p.isPathSep() {
+	for p.err == nil && p.isPathSep() {
 		// SEP
 		tok = p.shift()
 		result.Sep(tok.Val)
@@ -770,7 +765,7 @@ func (p *parser) parsePath(data bool) *ast.PathExpression {
 		// ID
 		tok = p.shift()
 		if tok.Kind != lexer.TokenID {
-			errExpected(lexer.TokenID, tok)
+			p.errExpected(lexer.TokenID, tok)
 		}
 
 		result.Part(tok.Val)
@@ -778,7 +773,7 @@ func (p *parser) parsePath(data bool) *ast.PathExpression {
 		if len(result.Parts) > 0 {
 			switch tok.Val {
 			case "..", ".", "this":
-				errToken(tok, "Invalid path: "+result.Original)
+				p.errToken(tok, "Invalid path: "+result.Original)
 			}
 		}
 	}
@@ -809,8 +804,19 @@ func (p *parser) ensure(index int) {
 	}
 }
 
+// eofToken is a synthetic End Of File token handed out once a sticky error
+// has been recorded, so token-consuming code can keep dereferencing a
+// non-nil token (Kind/Pos/Val) without indexing an exhausted buffer.
+var eofToken = &lexer.Token{Kind: lexer.TokenEOF}
+
 // have returns true is there are a list given number of tokens to consume left
 func (p *parser) have(nb int) bool {
+	// Once an error is sticky, parsing must stop: report no tokens so every
+	// is* predicate becomes false and the driver loops unwind.
+	if p.err != nil {
+		return false
+	}
+
 	p.ensure(nb - 1)
 
 	return len(p.tokens) >= nb
@@ -818,6 +824,12 @@ func (p *parser) have(nb int) bool {
 
 // nextAt returns next token at given index, without consuming it
 func (p *parser) nextAt(index int) *lexer.Token {
+	// Once an error is sticky, hand out a synthetic EOF token instead of
+	// indexing a possibly-exhausted buffer.
+	if p.err != nil {
+		return eofToken
+	}
+
 	p.ensure(index)
 
 	return p.tokens[index]
@@ -830,8 +842,14 @@ func (p *parser) next() *lexer.Token {
 
 // shift returns next token and remove it from the tokens buffer
 //
-// Panics if next token is `TokenError`
+// Records a sticky error if next token is `TokenError`
 func (p *parser) shift() *lexer.Token {
+	// Once an error is sticky, hand out a synthetic EOF token instead of
+	// indexing a possibly-exhausted buffer.
+	if p.err != nil {
+		return eofToken
+	}
+
 	var result *lexer.Token
 
 	p.ensure(0)
@@ -840,7 +858,7 @@ func (p *parser) shift() *lexer.Token {
 
 	// check error token
 	if result.Kind == lexer.TokenError {
-		errToken(result, "Lexer error")
+		p.errToken(result, "Lexer error")
 	}
 
 	return result
