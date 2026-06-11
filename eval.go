@@ -587,7 +587,7 @@ func (v *evalVisitor) findHelper(name string) reflect.Value {
 	}
 
 	// check global helpers
-	return findHelper(name)
+	return findHelper(name).legacy
 }
 
 // callFunc calls function with given options

@@ -364,8 +364,11 @@ func (tpl *Template) helperSeam() func(string) coreHelper {
 		if h := tpl.findHelper(name); h != zero {
 			return &legacyHelper{name: name, fn: h}
 		}
-		if h := findHelper(name); h != zero {
-			return &legacyHelper{name: name, fn: h}
+		if e := findHelper(name); e.valid() {
+			if e.streaming != nil {
+				return &streamingHelper{h: e.streaming}
+			}
+			return &legacyHelper{name: name, fn: e.legacy}
 		}
 		return nil
 	}

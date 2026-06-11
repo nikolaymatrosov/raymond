@@ -127,8 +127,11 @@ func (c *Compiled) helperSeam() func(string) coreHelper {
 		if ok {
 			return &streamingHelper{h: h}
 		}
-		if g := findHelper(name); g != zero {
-			return &legacyHelper{name: name, fn: g}
+		if e := findHelper(name); e.valid() {
+			if e.streaming != nil {
+				return &streamingHelper{h: e.streaming}
+			}
+			return &legacyHelper{name: name, fn: e.legacy}
 		}
 		return nil
 	}

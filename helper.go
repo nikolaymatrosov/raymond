@@ -2,7 +2,6 @@ package raymond
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"sync"
 )
@@ -22,36 +21,54 @@ type Options struct {
 	hash   map[string]interface{}
 }
 
+// helperEntry holds either a legacy reflected helper or a streaming one.
+type helperEntry struct {
+	legacy    reflect.Value
+	streaming Helper
+}
+
+func (e helperEntry) valid() bool { return e.streaming != nil || e.legacy.IsValid() }
+
 // helpers stores all globally registered helpers
-var helpers = make(map[string]reflect.Value)
+var helpers = make(map[string]helperEntry)
 
 // protects global helpers
 var helpersMutex sync.RWMutex
 
 func init() {
 	// register builtin helpers
-	RegisterHelper("if", ifHelper)
-	RegisterHelper("unless", unlessHelper)
-	RegisterHelper("with", withHelper)
-	RegisterHelper("each", eachHelper)
-	RegisterHelper("log", logHelper)
-	RegisterHelper("lookup", lookupHelper)
-	RegisterHelper("equal", equalHelper)
+	RegisterHelper("if", HelperFunc(builtinIf))
+	RegisterHelper("unless", HelperFunc(builtinUnless))
+	RegisterHelper("with", HelperFunc(builtinWith))
+	RegisterHelper("each", HelperFunc(builtinEach))
+	RegisterHelper("log", HelperFunc(builtinLog))
+	RegisterHelper("lookup", HelperFunc(builtinLookup))
+	RegisterHelper("equal", HelperFunc(builtinEqual))
 }
 
 // RegisterHelper registers a global helper. That helper will be available to all templates.
+//
+// helper may be a classic Go function (invoked through reflection, with
+// optional trailing *Options parameter) or a streaming Helper /
+// func(*HelperCall) error.
 func RegisterHelper(name string, helper interface{}) {
 	helpersMutex.Lock()
 	defer helpersMutex.Unlock()
 
-	if helpers[name] != zero {
+	if helpers[name].valid() {
 		panic(fmt.Errorf("Helper already registered: %s", name))
 	}
 
-	val := reflect.ValueOf(helper)
-	ensureValidHelper(name, val)
-
-	helpers[name] = val
+	switch h := helper.(type) {
+	case Helper:
+		helpers[name] = helperEntry{streaming: h}
+	case func(*HelperCall) error:
+		helpers[name] = helperEntry{streaming: HelperFunc(h)}
+	default:
+		val := reflect.ValueOf(helper)
+		ensureValidHelper(name, val)
+		helpers[name] = helperEntry{legacy: val}
+	}
 }
 
 // RegisterHelpers registers several global helpers. Those helpers will be available to all templates.
@@ -74,7 +91,7 @@ func RemoveAllHelpers() {
 	helpersMutex.Lock()
 	defer helpersMutex.Unlock()
 
-	helpers = make(map[string]reflect.Value)
+	helpers = make(map[string]helperEntry)
 }
 
 // ensureValidHelper panics if given helper is not valid
@@ -93,7 +110,7 @@ func ensureValidHelper(name string, funcValue reflect.Value) {
 }
 
 // findHelper finds a globally registered helper
-func findHelper(name string) reflect.Value {
+func findHelper(name string) helperEntry {
 	helpersMutex.RLock()
 	defer helpersMutex.RUnlock()
 
@@ -347,129 +364,4 @@ func (options *Options) Eval(ctx interface{}, field string) interface{} {
 	}
 
 	return val.Interface()
-}
-
-//
-// Misc
-//
-
-// isIncludableZero returns true if 'includeZero' option is set and first param is the number 0
-func (options *Options) isIncludableZero() bool {
-	b, ok := options.HashProp("includeZero").(bool)
-	if ok && b {
-		nb, ok := options.Param(0).(int)
-		if ok && nb == 0 {
-			return true
-		}
-	}
-
-	return false
-}
-
-//
-// Builtin helpers
-//
-
-// #if block helper
-func ifHelper(conditional interface{}, options *Options) interface{} {
-	if options.isIncludableZero() || IsTrue(conditional) {
-		return options.Fn()
-	}
-
-	return options.Inverse()
-}
-
-// #unless block helper
-func unlessHelper(conditional interface{}, options *Options) interface{} {
-	if options.isIncludableZero() || IsTrue(conditional) {
-		return options.Inverse()
-	}
-
-	return options.Fn()
-}
-
-// #with block helper
-func withHelper(context interface{}, options *Options) interface{} {
-	if IsTrue(context) {
-		return options.FnWith(context)
-	}
-
-	return options.Inverse()
-}
-
-// #each block helper
-func eachHelper(context interface{}, options *Options) interface{} {
-	if !IsTrue(context) {
-		return options.Inverse()
-	}
-
-	result := ""
-
-	val := reflect.ValueOf(context)
-	switch val.Kind() {
-	case reflect.Array, reflect.Slice:
-		for i := 0; i < val.Len(); i++ {
-			// computes private data
-			data := options.newIterDataFrame(val.Len(), i, nil)
-
-			// evaluates block
-			result += options.evalBlock(val.Index(i).Interface(), data, i)
-		}
-	case reflect.Map:
-		// note: a go hash is not ordered, so result may vary, this behaviour differs from the JS implementation
-		keys := val.MapKeys()
-		for i := 0; i < len(keys); i++ {
-			key := keys[i].Interface()
-			ctx := val.MapIndex(keys[i]).Interface()
-
-			// computes private data
-			data := options.newIterDataFrame(len(keys), i, key)
-
-			// evaluates block
-			result += options.evalBlock(ctx, data, key)
-		}
-	case reflect.Struct:
-		var exportedFields []int
-
-		// collect exported fields only
-		for i := 0; i < val.NumField(); i++ {
-			if tField := val.Type().Field(i); tField.PkgPath == "" {
-				exportedFields = append(exportedFields, i)
-			}
-		}
-
-		for i, fieldIndex := range exportedFields {
-			key := val.Type().Field(fieldIndex).Name
-			ctx := val.Field(fieldIndex).Interface()
-
-			// computes private data
-			data := options.newIterDataFrame(len(exportedFields), i, key)
-
-			// evaluates block
-			result += options.evalBlock(ctx, data, key)
-		}
-	}
-
-	return result
-}
-
-// #log helper
-func logHelper(message string) interface{} {
-	log.Print(message)
-	return ""
-}
-
-// #lookup helper
-func lookupHelper(obj interface{}, field string, options *Options) interface{} {
-	return Str(options.Eval(obj, field))
-}
-
-// #equal helper
-// Ref: https://github.com/aymerick/raymond/issues/7
-func equalHelper(a interface{}, b interface{}, options *Options) interface{} {
-	if Str(a) == Str(b) {
-		return options.Fn()
-	}
-
-	return ""
 }
