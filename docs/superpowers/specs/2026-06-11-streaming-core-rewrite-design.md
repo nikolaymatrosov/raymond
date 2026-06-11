@@ -2,7 +2,18 @@
 
 **Date:** 2026-06-11
 **Branch:** `003-streaming-core`
-**Status:** Draft for review
+**Status:** Implemented
+
+**Implementation amendments** (decided during execution):
+
+1. `Data.Lookup(name string)` resolves a single field name, not a path
+   slice — lambdas are invoked by the core mid-path, which a full-path
+   lookup cannot express.
+2. `errRecover` is retained at the entry points (`ExecWith`,
+   `ExecToWithOptions`, `Compiled.exec`) as a *catcher*, not control
+   flow: legacy helpers and the `Str()` contract may panic on
+   unprintable values, and tests pin their conversion to errors. The
+   render walk itself uses plain `error` returns throughout.
 
 ## 1. Problem
 
