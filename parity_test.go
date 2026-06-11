@@ -156,11 +156,11 @@ func TestParity_Mustache(t *testing.T) {
 	}
 
 	total := 0
-	for _, fileName := range mustacheTestFiles() {
+	for _, fileName := range mustacheTestFiles(t) {
 		if skipFiles[fileName] {
 			continue
 		}
-		tests := testsFromMustacheFile(fileName)
+		tests := testsFromMustacheFile(t, fileName)
 		total += len(tests)
 		runParity(t, tests)
 	}

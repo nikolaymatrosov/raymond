@@ -50,27 +50,28 @@ func TestMustache(t *testing.T) {
 		"~inheritance.yml": true,
 	}
 
-	for _, fileName := range mustacheTestFiles() {
+	for _, fileName := range mustacheTestFiles(t) {
 		if skipFiles[fileName] {
 			// fmt.Printf("Skipped file: %s\n", fileName)
 			continue
 		}
 
-		launchTests(t, testsFromMustacheFile(fileName))
+		launchTests(t, testsFromMustacheFile(t, fileName))
 	}
 }
 
-func testsFromMustacheFile(fileName string) []Test {
+func testsFromMustacheFile(t *testing.T, fileName string) []Test {
+	t.Helper()
 	result := []Test{}
 
 	fileData, err := os.ReadFile(path.Join("mustache", "specs", fileName))
 	if err != nil {
-		panic(err)
+		t.Fatalf("read spec %s: %v", fileName, err)
 	}
 
 	var testFile mustacheTestFile
 	if err := yaml.Unmarshal(fileData, &testFile); err != nil {
-		panic(err)
+		t.Fatalf("unmarshal spec %s: %v", fileName, err)
 	}
 
 	for _, mustacheTest := range testFile.Tests {
@@ -118,12 +119,13 @@ func haveAltDelimiter(test mustacheTest) bool {
 	return false
 }
 
-func mustacheTestFiles() []string {
+func mustacheTestFiles(t *testing.T) []string {
+	t.Helper()
 	var result []string
 
 	files, err := os.ReadDir(path.Join("mustache", "specs"))
 	if err != nil {
-		panic(err)
+		t.Fatalf("read specs dir: %v", err)
 	}
 
 	for _, file := range files {
