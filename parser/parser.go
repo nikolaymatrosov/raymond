@@ -28,6 +28,11 @@ type parser struct {
 
 	// All tokens have been retreieved from lexer
 	lexOver bool
+
+	// Structural limits
+	limits    Limits
+	nodeCount int
+	depth     int
 }
 
 var (
@@ -36,25 +41,29 @@ var (
 	rOpenAmp      = regexp.MustCompile(`^\{\{~?&`)
 )
 
-// new instanciates a new parser
-func new(input string) *parser {
+// newParser instanciates a new parser
+func newParser(input string, limits Limits) *parser {
 	return &parser{
-		lex: lexer.Scan(input),
+		lex:    lexer.Scan(input),
+		limits: limits,
 	}
 }
 
 // Parse analyzes given input and returns the AST root node.
-func Parse(input string) (result *ast.Program, err error) {
+func Parse(input string) (*ast.Program, error) {
+	return newParser(input, Limits{}).parse()
+}
+
+// parse runs the analysis on the parser's input.
+func (p *parser) parse() (result *ast.Program, err error) {
 	// recover error
 	defer errRecover(&err)
 
-	parser := new(input)
-
 	// parse
-	result = parser.parseProgram()
+	result = p.parseProgram()
 
 	// check last token
-	token := parser.shift()
+	token := p.shift()
 	if token.Kind != lexer.TokenEOF {
 		// Parsing ended before EOF
 		errToken(token, "Syntax error")
@@ -104,6 +113,10 @@ func errExpected(expect lexer.TokenKind, tok *lexer.Token) {
 
 // program : statement*
 func (p *parser) parseProgram() *ast.Program {
+	p.enterNesting()
+	defer p.exitNesting()
+
+	p.countNode()
 	result := ast.NewProgram(p.next().Pos, p.next().Line)
 
 	for p.isStatement() {
@@ -171,6 +184,7 @@ func (p *parser) parseContent() *ast.ContentStatement {
 		errExpected(lexer.TokenContent, tok)
 	}
 
+	p.countNode()
 	return ast.NewContentStatement(tok.Pos, tok.Line, tok.Val)
 }
 
@@ -182,6 +196,7 @@ func (p *parser) parseComment() *ast.CommentStatement {
 	value := rOpenComment.ReplaceAllString(tok.Val, "")
 	value = rCloseComment.ReplaceAllString(value, "")
 
+	p.countNode()
 	result := ast.NewCommentStatement(tok.Pos, tok.Line, value)
 	result.Strip = ast.NewStripForStr(tok.Val)
 
@@ -208,6 +223,7 @@ func (p *parser) parseExpressionParamsHash() ([]ast.Node, *ast.Hash) {
 
 // helperName param* hash?
 func (p *parser) parseExpression(tok *lexer.Token) *ast.Expression {
+	p.countNode()
 	result := ast.NewExpression(tok.Pos, tok.Line)
 
 	// helperName
@@ -226,6 +242,7 @@ func (p *parser) parseRawBlock() *ast.BlockStatement {
 	// OPEN_RAW_BLOCK
 	tok := p.shift()
 
+	p.countNode()
 	result := ast.NewBlockStatement(tok.Pos, tok.Line)
 
 	// helperName param* hash?
@@ -243,6 +260,7 @@ func (p *parser) parseRawBlock() *ast.BlockStatement {
 	// @todo Is content mandatory in a raw block ?
 	content := p.parseContent()
 
+	p.countNode()
 	program := ast.NewProgram(tok.Pos, tok.Line)
 	program.AddStatement(content)
 
@@ -346,6 +364,7 @@ func (p *parser) parseInverse() *ast.BlockStatement {
 func (p *parser) parseOpenBlockExpression(tok *lexer.Token) (*ast.BlockStatement, []string) {
 	var blockParams []string
 
+	p.countNode()
 	result := ast.NewBlockStatement(tok.Pos, tok.Line)
 
 	// helperName param* hash?
@@ -368,6 +387,7 @@ func (p *parser) parseInverseChain() *ast.Program {
 		return p.parseInverseAndProgram()
 	}
 
+	p.countNode()
 	result := ast.NewProgram(p.next().Pos, p.next().Line)
 
 	// openInverseChain
@@ -477,6 +497,7 @@ func (p *parser) parseMustache() *ast.MustacheStatement {
 		unescaped = true
 	}
 
+	p.countNode()
 	result := ast.NewMustacheStatement(tok.Pos, tok.Line, unescaped)
 
 	// helperName param* hash?
@@ -498,6 +519,7 @@ func (p *parser) parsePartial() *ast.PartialStatement {
 	// OPEN_PARTIAL
 	tok := p.shift()
 
+	p.countNode()
 	result := ast.NewPartialStatement(tok.Pos, tok.Line)
 
 	// partialName
@@ -551,9 +573,13 @@ func (p *parser) parseParams() []ast.Node {
 
 // sexpr : OPEN_SEXPR helperName param* hash? CLOSE_SEXPR
 func (p *parser) parseSexpr() *ast.SubExpression {
+	p.enterNesting()
+	defer p.exitNesting()
+
 	// OPEN_SEXPR
 	tok := p.shift()
 
+	p.countNode()
 	result := ast.NewSubExpression(tok.Pos, tok.Line)
 
 	// helperName param* hash?
@@ -578,6 +604,7 @@ func (p *parser) parseHash() *ast.Hash {
 
 	firstLoc := pairs[0].Location()
 
+	p.countNode()
 	result := ast.NewHash(firstLoc.Pos, firstLoc.Line)
 	result.Pairs = pairs
 
@@ -600,6 +627,7 @@ func (p *parser) parseHashSegment() *ast.HashPair {
 	// param
 	param := p.parseParam()
 
+	p.countNode()
 	result := ast.NewHashPair(tok.Pos, tok.Line)
 	result.Key = tok.Val
 	result.Val = param
@@ -642,16 +670,19 @@ func (p *parser) parseHelperName() ast.Node {
 	case lexer.TokenBoolean:
 		// BOOLEAN
 		p.shift()
+		p.countNode()
 		result = ast.NewBooleanLiteral(tok.Pos, tok.Line, (tok.Val == "true"), tok.Val)
 	case lexer.TokenNumber:
 		// NUMBER
 		p.shift()
 
 		val, isInt := parseNumber(tok)
+		p.countNode()
 		result = ast.NewNumberLiteral(tok.Pos, tok.Line, val, isInt, tok.Val)
 	case lexer.TokenString:
 		// STRING
 		p.shift()
+		p.countNode()
 		result = ast.NewStringLiteral(tok.Pos, tok.Line, tok.Val)
 	case lexer.TokenData:
 		// dataName
@@ -723,6 +754,7 @@ func (p *parser) parsePath(data bool) *ast.PathExpression {
 		errExpected(lexer.TokenID, tok)
 	}
 
+	p.countNode()
 	result := ast.NewPathExpression(tok.Pos, tok.Line, data)
 	result.Part(tok.Val)
 
