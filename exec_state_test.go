@@ -129,3 +129,15 @@ func TestCapture_BoundedByRemainingBudget(t *testing.T) {
 		t.Errorf("sink has %d bytes, want 0", sink.Len())
 	}
 }
+
+func TestBlockParam_InvalidBindingNotFound(t *testing.T) {
+	s := &state{}
+	s.pushBlockParams(map[string]Value{"x": {}})
+	if _, found := s.blockParam("x"); found {
+		t.Error("invalid block-param binding must report not-found")
+	}
+	s.pushBlockParams(map[string]Value{"x": stringValue("v", false)})
+	if v, found := s.blockParam("x"); !found || v.Str() != "v" {
+		t.Error("valid inner binding must shadow")
+	}
+}

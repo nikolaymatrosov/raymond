@@ -182,7 +182,7 @@ func (s *state) renderPartial(node *ast.PartialStatement) error {
 			if err != nil {
 				return err
 			}
-			name = v.Str()
+			name, _ = v.Interface().(string)
 		}
 	}
 	if name == "" {

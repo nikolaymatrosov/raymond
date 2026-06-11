@@ -23,7 +23,9 @@ func adaptReflectValue(rv reflect.Value) Value {
 	}
 
 	raw := ind.Interface()
-	truth, _ := isTrueValue(rv) // truth of the ORIGINAL, like VisitBlock
+	// truth of the indirected value — the old engine truth-tested
+	// post-indirect results (eval.go:359, 852)
+	truth, _ := isTrueValue(ind)
 
 	switch ind.Kind() {
 	case reflect.String:

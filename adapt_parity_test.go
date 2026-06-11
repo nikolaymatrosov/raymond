@@ -135,3 +135,18 @@ func TestAdapt_MapAndSliceLookup(t *testing.T) {
 		t.Error("Lookup(-1) should not resolve")
 	}
 }
+
+func TestAdapt_PointerTruthIndirects(t *testing.T) {
+	empty := ""
+	full := "x"
+	if adaptValue(&empty).Truthy() {
+		t.Error("pointer to empty string must be falsy (old engine indirects before truth)")
+	}
+	if !adaptValue(&full).Truthy() {
+		t.Error("pointer to non-empty string must be truthy")
+	}
+	var nilPtr *string
+	if adaptValue(nilPtr).Truthy() {
+		t.Error("nil pointer must be falsy")
+	}
+}

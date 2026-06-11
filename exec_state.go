@@ -102,7 +102,9 @@ func (s *state) popBlockParams() {
 func (s *state) blockParam(name string) (Value, bool) {
 	for i := len(s.blockParams) - 1; i >= 0; i-- {
 		if v, ok := s.blockParams[i][name]; ok {
-			return v, true
+			// a nil/invalid binding is "not found" (eval.go:428) so
+			// resolution falls through to the context/data path
+			return v, v.IsValid()
 		}
 	}
 	return Value{}, false
