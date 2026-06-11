@@ -2,6 +2,7 @@ package raymond
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -40,11 +41,11 @@ func adaptReflectValue(rv reflect.Value) Value {
 	case reflect.Bool:
 		return Value{kind: KindBool, truth: truth, b: ind.Bool(), raw: raw}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return Value{kind: KindInt, truth: truth, i: ind.Int(), raw: raw}
+		return Value{kind: KindInt, truth: truth, num: uint64(ind.Int()), raw: raw}
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return Value{kind: KindUint, truth: truth, u: ind.Uint(), raw: raw}
+		return Value{kind: KindUint, truth: truth, num: ind.Uint(), raw: raw}
 	case reflect.Float32, reflect.Float64:
-		return Value{kind: KindFloat, truth: truth, f: ind.Float(), raw: raw}
+		return Value{kind: KindFloat, truth: truth, num: math.Float64bits(ind.Float()), raw: raw}
 	case reflect.Array, reflect.Slice:
 		rd := &reflectData{rv: ind}
 		return Value{kind: KindList, truth: truth, list: rd, data: rd, raw: raw, legacyStr: true}

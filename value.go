@@ -1,6 +1,7 @@
 package raymond
 
 import (
+	"math"
 	"strconv"
 	"strings"
 )
@@ -55,14 +56,7 @@ type Iterable interface {
 type Value struct {
 	kind  Kind
 	truth bool
-	str   string
-	i     int64
-	u     uint64
-	f     float64
 	b     bool
-	list  List
-	data  Data
-	fn    callable
 	// fromMethod marks funcs found via method lookup: the old engine
 	// re-invokes a method's func result once (eval.go:358-364), but a
 	// plain field func only once total.
@@ -72,7 +66,17 @@ type Value struct {
 	// panics on chan/func). raw already holds the value, so no closure
 	// is needed — the flag alone avoids a per-value allocation.
 	legacyStr bool
-	raw       interface{}
+	str       string
+	// num holds the numeric payload for KindInt/KindUint/KindFloat: an
+	// int64 reinterpreted via uint64(i)/int64(num), a uint64 directly, or
+	// a float64 via math.Float64bits/Float64frombits. Unioning the three
+	// 8-byte numeric fields into one shrinks Value (it sits in every
+	// params slice, hash bucket and ctx stack).
+	num  uint64
+	list List
+	data Data
+	fn   callable
+	raw  interface{}
 }
 
 func (v Value) Kind() Kind             { return v.kind }
@@ -93,11 +97,11 @@ func (v Value) Str() string {
 		}
 		return "false"
 	case KindInt:
-		return strconv.FormatInt(v.i, 10)
+		return strconv.FormatInt(int64(v.num), 10)
 	case KindUint:
-		return strconv.FormatUint(v.u, 10)
+		return strconv.FormatUint(v.num, 10)
 	case KindFloat:
-		return strconv.FormatFloat(v.f, 'f', -1, 64)
+		return strconv.FormatFloat(math.Float64frombits(v.num), 'f', -1, 64)
 	case KindList:
 		// adapted lists carry strFn so stringification runs through
 		// strValue's own recursion (legacy promotion rules); synthetic
@@ -136,15 +140,15 @@ func boolValue(b bool) Value {
 }
 
 func intValue(i int64, raw interface{}) Value {
-	return Value{kind: KindInt, truth: i != 0, i: i, raw: raw}
+	return Value{kind: KindInt, truth: i != 0, num: uint64(i), raw: raw}
 }
 
 func uintValue(u uint64, raw interface{}) Value {
-	return Value{kind: KindUint, truth: u != 0, u: u, raw: raw}
+	return Value{kind: KindUint, truth: u != 0, num: u, raw: raw}
 }
 
 func floatValue(f float64, raw interface{}) Value {
-	return Value{kind: KindFloat, truth: f != 0, f: f, raw: raw}
+	return Value{kind: KindFloat, truth: f != 0, num: math.Float64bits(f), raw: raw}
 }
 
 func listValue(l List, truth bool, raw interface{}) Value {
