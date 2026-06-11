@@ -1,7 +1,6 @@
 package raymond
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -10,7 +9,7 @@ import (
 // evalVisitor.callFunc (eval.go:594-658) with errors instead of
 // panics; message strings are byte-identical.
 func callLegacyFunc(s *state, name string, funcVal reflect.Value, opts *Options) (Value, error) {
-	if err := ensureValidHelperErr(name, funcVal); err != nil {
+	if err := ensureValidHelper(name, funcVal); err != nil {
 		return Value{}, s.errorf("%s", err.Error())
 	}
 
@@ -117,17 +116,4 @@ func rawHash(hash map[string]Value) map[string]any {
 		out[k] = v.Interface()
 	}
 	return out
-}
-
-// ensureValidHelperErr is ensureValidHelper (helper.go:76-88) as an
-// error for exec-time lambda validation (evalFieldFunc runs it before
-// building options, eval.go:388); registration keeps the panic.
-func ensureValidHelperErr(name string, funcValue reflect.Value) error {
-	if funcValue.Kind() != reflect.Func {
-		return fmt.Errorf("Helper must be a function: %s", name)
-	}
-	if funcValue.Type().NumOut() != 1 {
-		return fmt.Errorf("Helper function must return a string or a SafeString: %s", name)
-	}
-	return nil
 }

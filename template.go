@@ -180,7 +180,9 @@ func (tpl *Template) RegisterHelper(name string, helper any) {
 	}
 
 	val := reflect.ValueOf(helper)
-	ensureValidHelper(name, val)
+	if err := ensureValidHelper(name, val); err != nil {
+		panic(err)
+	}
 
 	tpl.helpers[name] = val
 }
