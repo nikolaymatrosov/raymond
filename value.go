@@ -97,6 +97,13 @@ func (v Value) Str() string {
 	case KindFloat:
 		return strconv.FormatFloat(v.f, 'f', -1, 64)
 	case KindList:
+		// adapted lists carry strFn so stringification runs through
+		// strValue's own recursion (legacy promotion rules); synthetic
+		// sliceList values concatenate element Strs (eval.go:540-556
+		// array-context results were stringified element-wise too)
+		if v.strFn != nil {
+			return v.strFn()
+		}
 		var sb strings.Builder
 		for i := 0; i < v.list.Len(); i++ {
 			sb.WriteString(v.list.Index(i).Str())

@@ -34,7 +34,7 @@ func adaptReflectValue(rv reflect.Value) Value {
 		}
 		if _, ok := raw.(fmt.Stringer); ok {
 			// Stringer-typed strings keep legacy Str() promotion
-			return opaqueValue(ind, raw, truth)
+			return opaqueValue(raw, truth)
 		}
 		return Value{kind: KindString, truth: truth, str: ind.String(), raw: raw}
 	case reflect.Bool:
@@ -47,25 +47,31 @@ func adaptReflectValue(rv reflect.Value) Value {
 		return Value{kind: KindFloat, truth: truth, f: ind.Float(), raw: raw}
 	case reflect.Array, reflect.Slice:
 		rd := &reflectData{rv: ind}
-		return Value{kind: KindList, truth: truth, list: rd, data: rd, raw: raw, strFn: legacyStrFn(ind)}
+		return Value{kind: KindList, truth: truth, list: rd, data: rd, raw: raw, strFn: legacyStrFn(raw)}
 	case reflect.Map, reflect.Struct:
 		rd := &reflectData{rv: ind}
-		return Value{kind: KindMap, truth: truth, data: rd, raw: raw, strFn: legacyStrFn(ind)}
+		return Value{kind: KindMap, truth: truth, data: rd, raw: raw, strFn: legacyStrFn(raw)}
 	case reflect.Func:
-		return funcValue(&legacyFunc{name: "", fn: ind}, false, raw)
+		fv := funcValue(&legacyFunc{name: "", fn: ind}, false, raw)
+		fv.strFn = legacyStrFn(raw)
+		return fv
 	default:
-		return opaqueValue(ind, raw, truth)
+		return opaqueValue(raw, truth)
 	}
 }
 
-func opaqueValue(ind reflect.Value, raw interface{}, truth bool) Value {
-	return Value{kind: KindOpaque, truth: truth, raw: raw, strFn: legacyStrFn(ind)}
+func opaqueValue(raw interface{}, truth bool) Value {
+	return Value{kind: KindOpaque, truth: truth, raw: raw, strFn: legacyStrFn(raw)}
 }
 
-// legacyStrFn defers to strValue for full fidelity (Stringer/error
-// promotion, panic on unprintables) on non-scalar kinds.
-func legacyStrFn(rv reflect.Value) func() string {
-	return func() string { return strValue(rv) }
+// legacyStrFn defers to Str for full fidelity on non-scalar kinds. It
+// deliberately stringifies the interface value, NOT the addressable
+// reflect.Value: the old engine always called Str(expr) on an
+// interface{} (eval.go:826, 796), so a fresh non-addressable
+// reflect.Value decides Stringer/error promotion, funcs panic with
+// "Can't print value", and slices recurse inside strValue.
+func legacyStrFn(raw interface{}) func() string {
+	return func() string { return Str(raw) }
 }
 
 // reflectData adapts any reflected container. Lookup ports
@@ -80,7 +86,9 @@ func (rd *reflectData) Lookup(name string) (Value, bool) {
 
 	// method check first (eval.go:328-329)
 	if m, ok := lookupMethod(ctx, name); ok {
-		return funcValue(&legacyFunc{name: name, fn: m}, true, m.Interface()), true
+		fv := funcValue(&legacyFunc{name: name, fn: m}, true, m.Interface())
+		fv.strFn = legacyStrFn(m.Interface())
+		return fv, true
 	}
 
 	var result reflect.Value
@@ -110,7 +118,9 @@ func (rd *reflectData) Lookup(name string) (Value, bool) {
 	// indirect + deferred func detection (eval.go:358-364)
 	ind, _ := indirect(result)
 	if ind.Kind() == reflect.Func {
-		return funcValue(&legacyFunc{name: name, fn: ind}, false, ind.Interface()), true
+		fv := funcValue(&legacyFunc{name: name, fn: ind}, false, ind.Interface())
+		fv.strFn = legacyStrFn(ind.Interface())
+		return fv, true
 	}
 	return adaptReflectValue(result), true
 }

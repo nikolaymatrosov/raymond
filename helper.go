@@ -123,6 +123,15 @@ func newEmptyOptions(eval *evalVisitor) *Options {
 
 // Value returns field value from current context.
 func (options *Options) Value(name string) interface{} {
+	if options.s != nil {
+		v, err := options.s.lookupField(options.s.curCtx(), name, false)
+		if err != nil {
+			options.err = err
+			return nil
+		}
+		return v.Interface()
+	}
+
 	value := options.eval.evalField(options.eval.curCtx(), name, false)
 	if !value.IsValid() {
 		return nil
@@ -138,6 +147,10 @@ func (options *Options) ValueStr(name string) string {
 
 // Ctx returns current evaluation context.
 func (options *Options) Ctx() interface{} {
+	if options.s != nil {
+		return options.s.curCtx().Interface()
+	}
+
 	return options.eval.curCtx().Interface()
 }
 
@@ -189,16 +202,24 @@ func (options *Options) Params() []interface{} {
 
 // Data returns private data value.
 func (options *Options) Data(name string) interface{} {
+	if options.s != nil {
+		return options.s.frame.Get(name)
+	}
+
 	return options.eval.dataFrame.Get(name)
 }
 
 // DataStr returns string representation of private data value.
 func (options *Options) DataStr(name string) string {
-	return Str(options.eval.dataFrame.Get(name))
+	return Str(options.Data(name))
 }
 
 // DataFrame returns current private data frame.
 func (options *Options) DataFrame() *DataFrame {
+	if options.s != nil {
+		return options.s.frame
+	}
+
 	return options.eval.dataFrame
 }
 
@@ -206,11 +227,19 @@ func (options *Options) DataFrame() *DataFrame {
 //
 // Parent of returned data frame is set to current evaluation data frame.
 func (options *Options) NewDataFrame() *DataFrame {
+	if options.s != nil {
+		return options.s.frame.Copy()
+	}
+
 	return options.eval.dataFrame.Copy()
 }
 
 // newIterDataFrame instanciates a new data frame and set iteration specific vars
 func (options *Options) newIterDataFrame(length int, i int, key interface{}) *DataFrame {
+	if options.s != nil {
+		return options.s.frame.newIterDataFrame(length, i, key)
+	}
+
 	return options.eval.dataFrame.newIterDataFrame(length, i, key)
 }
 
@@ -220,6 +249,23 @@ func (options *Options) newIterDataFrame(length int, i int, key interface{}) *Da
 
 // evalBlock evaluates block with given context, private data and iteration key
 func (options *Options) evalBlock(ctx interface{}, data *DataFrame, key interface{}) string {
+	if options.s != nil {
+		if options.err != nil {
+			return ""
+		}
+		if block := options.s.curBlock(); (block != nil) && (block.Program != nil) {
+			out, err := options.s.capture(func() error {
+				return options.s.renderProgramWith(block.Program, adaptValue(ctx), data, key)
+			})
+			if err != nil {
+				options.err = err
+				return ""
+			}
+			return out
+		}
+		return ""
+	}
+
 	result := ""
 
 	if block := options.eval.curBlock(); (block != nil) && (block.Program != nil) {
@@ -251,6 +297,23 @@ func (options *Options) FnData(data *DataFrame) string {
 
 // Inverse evaluates "else block".
 func (options *Options) Inverse() string {
+	if options.s != nil {
+		if options.err != nil {
+			return ""
+		}
+		if block := options.s.curBlock(); (block != nil) && (block.Inverse != nil) {
+			out, err := options.s.capture(func() error {
+				return options.s.renderProgram(block.Inverse)
+			})
+			if err != nil {
+				options.err = err
+				return ""
+			}
+			return out
+		}
+		return ""
+	}
+
 	result := ""
 	if block := options.eval.curBlock(); (block != nil) && (block.Inverse != nil) {
 		result, _ = block.Inverse.Accept(options.eval).(string)
@@ -267,6 +330,15 @@ func (options *Options) Eval(ctx interface{}, field string) interface{} {
 
 	if field == "" {
 		return nil
+	}
+
+	if options.s != nil {
+		v, err := options.s.lookupField(adaptValue(ctx), field, false)
+		if err != nil {
+			options.err = err
+			return nil
+		}
+		return v.Interface()
 	}
 
 	val := options.eval.evalField(reflect.ValueOf(ctx), field, false)

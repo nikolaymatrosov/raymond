@@ -1,6 +1,7 @@
 package raymond
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +20,7 @@ type Template struct {
 	program  *ast.Program
 	helpers  map[string]reflect.Value
 	partials map[string]*partial
-	report   ParseReport // populated by ParseWithOptions when the visitor runs
+	report   ParseReport  // populated by ParseWithOptions when the visitor runs
 	mutex    sync.RWMutex // protects helpers and partials
 }
 
@@ -377,6 +378,70 @@ func (tpl *Template) ExecToWithOptions(w io.Writer, ctx interface{}, privData *D
 		}
 	}
 	return nil
+}
+
+// execute drives the streaming engine for this template. cap, when
+// non-nil, is the outermost output cap already wrapping w.
+func (tpl *Template) execute(c context.Context, w io.Writer, cap *cappedWriter,
+	ctx interface{}, privData *DataFrame, limits Limits) error {
+
+	frame := privData
+	if frame == nil {
+		frame = NewDataFrame()
+	}
+
+	s := &state{
+		tctx:         c,
+		w:            w,
+		cap:          cap,
+		limits:       limits,
+		nextCtxCheck: ctxCheckInterval,
+		helpers:      tpl.helperSeam(),
+		partials:     tpl.partialSeam(),
+		ctxStack:     []Value{adaptValue(ctx)},
+		frame:        frame,
+		exprFunc:     make(map[*ast.Expression]bool),
+	}
+	return s.renderProgram(tpl.program)
+}
+
+// helperSeam resolves helpers the way the old engine does: template
+// helpers first, then globals (eval.go:583-591).
+func (tpl *Template) helperSeam() func(string) coreHelper {
+	return func(name string) coreHelper {
+		if h := tpl.findHelper(name); h != zero {
+			return &legacyHelper{name: name, fn: h}
+		}
+		if h := findHelper(name); h != zero {
+			return &legacyHelper{name: name, fn: h}
+		}
+		return nil
+	}
+}
+
+// partialSeam resolves partials the way the old engine does: template
+// partials first, then globals, lazily parsed (eval.go:693-701,726-731).
+func (tpl *Template) partialSeam() func(string) (*ast.Program, error) {
+	return func(name string) (*ast.Program, error) {
+		p := tpl.findPartial(name)
+		if p == nil {
+			p = findPartial(name)
+		}
+		if p == nil {
+			return nil, nil
+		}
+		ptpl, err := p.template()
+		if err != nil {
+			return nil, err
+		}
+		// template() only parses when it builds the template from
+		// source; a pre-built template registered via
+		// RegisterPartialTemplate may still be unparsed.
+		if perr := ptpl.parse(); perr != nil {
+			return nil, perr
+		}
+		return ptpl.program, nil
+	}
 }
 
 // execToErrRecover handles panics from the evaluator during a streaming

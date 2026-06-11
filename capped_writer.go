@@ -1,15 +1,16 @@
 package raymond
 
 import (
-	"errors"
+	"fmt"
 	"io"
 )
 
 // errBudgetOverflow is the unexported sentinel returned by cappedWriter
 // when a Write would push cumulative bytes-written strictly above the
 // configured limit. It never escapes to callers: the streaming driver
-// converts it into a *RenderBudgetExceededError.
-var errBudgetOverflow = errors.New("render output budget exceeded")
+// converts it into a *RenderBudgetExceededError. It wraps ErrOutputLimit
+// so errors.Is(err, ErrOutputLimit) holds throughout the chain.
+var errBudgetOverflow = fmt.Errorf("render output budget exceeded: %w", ErrOutputLimit)
 
 // cappedWriter is an io.Writer wrapper that delegates to dst while
 // counting bytes and refusing to forward any byte that would push
