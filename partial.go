@@ -32,34 +32,40 @@ func newPartial(name string, source string, tpl *Template) *partial {
 }
 
 // RegisterPartial registers a global partial. That partial will be available to all templates.
-func RegisterPartial(name string, source string) {
+// Returns an error if a partial with the same name is already registered.
+func RegisterPartial(name string, source string) error {
 	partialsMutex.Lock()
 	defer partialsMutex.Unlock()
 
 	if partials[name] != nil {
-		panic(fmt.Errorf("Partial already registered: %s", name))
+		return fmt.Errorf("Partial already registered: %s", name)
 	}
-
 	partials[name] = newPartial(name, source, nil)
+	return nil
 }
 
 // RegisterPartials registers several global partials. Those partials will be available to all templates.
-func RegisterPartials(partials map[string]string) {
+// Returns the first error encountered, if any.
+func RegisterPartials(partials map[string]string) error {
 	for name, p := range partials {
-		RegisterPartial(name, p)
+		if err := RegisterPartial(name, p); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // RegisterPartialTemplate registers a global partial with given parsed template. That partial will be available to all templates.
-func RegisterPartialTemplate(name string, tpl *Template) {
+// Returns an error if a partial with the same name is already registered.
+func RegisterPartialTemplate(name string, tpl *Template) error {
 	partialsMutex.Lock()
 	defer partialsMutex.Unlock()
 
 	if partials[name] != nil {
-		panic(fmt.Errorf("Partial already registered: %s", name))
+		return fmt.Errorf("Partial already registered: %s", name)
 	}
-
 	partials[name] = newPartial(name, "", tpl)
+	return nil
 }
 
 // RemovePartial removes the partial registered under the given name. The partial will not be available globally anymore. This does not affect partials registered on a specific template.

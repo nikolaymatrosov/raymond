@@ -1,6 +1,9 @@
 package raymond
 
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
 func Example() {
 	source := "<h1>{{title}}</h1><p>{{body.content}}</p>"
@@ -112,4 +115,12 @@ func ExampleMustRender() {
 
 	fmt.Print(output)
 	// Output: <h1>foo</h1><p>bar</p>
+}
+
+func TestRegisterPartial_DuplicateReturnsError(t *testing.T) {
+	RegisterPartial("dup_d2", "x")
+	defer RemovePartial("dup_d2")
+	if err := RegisterPartial("dup_d2", "y"); err == nil {
+		t.Fatal("re-registering a partial must return an error, got nil")
+	}
 }
