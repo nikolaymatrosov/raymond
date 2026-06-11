@@ -359,8 +359,7 @@ func lexOpenMustache(l *Lexer) lexFunc {
 	} else if str = l.findRegexp(rOpen); str != "" {
 		tok = TokenOpen
 	} else {
-		// this is rotten
-		panic("Current pos MUST be an opening mustache")
+		return l.errorf("Current pos MUST be an opening mustache")
 	}
 
 	l.pos += len(str)
@@ -384,8 +383,7 @@ func lexCloseMustache(l *Lexer) lexFunc {
 		// }}
 		tok = TokenClose
 	} else {
-		// this is rotten
-		panic("Current pos MUST be a closing mustache")
+		return l.errorf("Current pos MUST be a closing mustache")
 	}
 
 	l.pos += len(str)
@@ -598,8 +596,7 @@ func (l *Lexer) scanNumber() bool {
 func lexIdentifier(l *Lexer) lexFunc {
 	str := l.findRegexp(rID)
 	if len(str) == 0 {
-		// this is rotten
-		panic("Identifier expected")
+		return l.errorf("Identifier expected")
 	}
 
 	l.pos += len(str)
