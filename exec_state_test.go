@@ -5,8 +5,30 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 )
+
+// indentLines is the old engine's implementation, kept as the parity oracle for indentWriter.
+func indentLines(str string, indent string) string {
+	if indent == "" {
+		return str
+	}
+
+	var indented []string
+
+	lines := strings.Split(str, "\n")
+	for i, line := range lines {
+		if (i == (len(lines) - 1)) && (line == "") {
+			// input string ends with a new line
+			indented = append(indented, line)
+		} else {
+			indented = append(indented, indent+line)
+		}
+	}
+
+	return strings.Join(indented, "\n")
+}
 
 func TestIndentWriter_MatchesIndentLines(t *testing.T) {
 	cases := []string{"", "a", "a\n", "a\nb", "a\nb\n", "a\n\nb\n", "\n", "\n\n"}

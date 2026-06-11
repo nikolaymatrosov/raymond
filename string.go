@@ -6,6 +6,14 @@ import (
 	"strconv"
 )
 
+var (
+	// @note borrowed from https://github.com/golang/go/tree/master/src/text/template/exec.go
+	errorType       = reflect.TypeOf((*error)(nil)).Elem()
+	fmtStringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+
+	zero reflect.Value
+)
+
 // SafeString represents a string that must not be escaped.
 //
 // A SafeString can be returned by helpers to disable escaping.
