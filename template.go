@@ -30,6 +30,11 @@ type Template struct {
 	seamOnce     sync.Once
 	helperSeamF  func(string) coreHelper
 	partialSeamF func(string) (*ast.Program, error)
+
+	// helperCache memoizes resolved template-local helper wrappers
+	// (guarded by mutex). Only add-only template helpers are cached;
+	// see helperSeam.
+	helperCache map[string]coreHelper
 }
 
 // seams returns the memoized helper/partial resolution closures.
@@ -158,13 +163,6 @@ func (tpl *Template) Clone() *Template {
 	}
 
 	return result
-}
-
-func (tpl *Template) findHelper(name string) reflect.Value {
-	tpl.mutex.RLock()
-	defer tpl.mutex.RUnlock()
-
-	return tpl.helpers[name]
 }
 
 // RegisterHelper registers a helper for that template.
@@ -382,8 +380,28 @@ func (tpl *Template) execute(c context.Context, w io.Writer, cap *cappedWriter,
 // helpers first, then globals (eval.go:583-591).
 func (tpl *Template) helperSeam() func(string) coreHelper {
 	return func(name string) coreHelper {
-		if h := tpl.findHelper(name); h != zero {
-			return &legacyHelper{name: name, fn: h}
+		tpl.mutex.RLock()
+		if c, ok := tpl.helperCache[name]; ok {
+			tpl.mutex.RUnlock()
+			return c
+		}
+		h := tpl.helpers[name]
+		tpl.mutex.RUnlock()
+
+		// Template-local helpers are add-only (RegisterHelper panics on
+		// a duplicate and there is no per-template remove), so a resolved
+		// wrapper never goes stale — cache it to avoid reallocating
+		// &legacyHelper on every call. Globals are NOT cached here:
+		// RemoveHelper/RemoveAllHelpers could invalidate them.
+		if h != zero {
+			lh := &legacyHelper{name: name, fn: h}
+			tpl.mutex.Lock()
+			if tpl.helperCache == nil {
+				tpl.helperCache = make(map[string]coreHelper)
+			}
+			tpl.helperCache[name] = lh
+			tpl.mutex.Unlock()
+			return lh
 		}
 		if e := findHelper(name); e.valid() {
 			if e.streaming != nil {

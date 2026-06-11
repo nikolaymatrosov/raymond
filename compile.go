@@ -26,6 +26,11 @@ type Compiled struct {
 	seamOnce     sync.Once
 	helperSeamF  func(string) coreHelper
 	partialSeamF func(string) (*ast.Program, error)
+
+	// helperCache memoizes resolved Compiled-local helper wrappers
+	// (guarded by mu). Only add-only local helpers are cached; see
+	// helperSeam.
+	helperCache map[string]coreHelper
 }
 
 // seams returns the memoized helper/partial resolution closures.
@@ -137,10 +142,25 @@ func (c *Compiled) exec(tctx context.Context, w io.Writer, root Value) (err erro
 func (c *Compiled) helperSeam() func(string) coreHelper {
 	return func(name string) coreHelper {
 		c.mu.RLock()
+		if ch, ok := c.helperCache[name]; ok {
+			c.mu.RUnlock()
+			return ch
+		}
 		h, ok := c.helpers[name]
 		c.mu.RUnlock()
+
+		// Compiled-local helpers are add-only, so a resolved wrapper
+		// never goes stale — cache it. Globals are not cached (see
+		// Template.helperSeam).
 		if ok {
-			return &streamingHelper{h: h}
+			sh := &streamingHelper{h: h}
+			c.mu.Lock()
+			if c.helperCache == nil {
+				c.helperCache = make(map[string]coreHelper)
+			}
+			c.helperCache[name] = sh
+			c.mu.Unlock()
+			return sh
 		}
 		if e := findHelper(name); e.valid() {
 			if e.streaming != nil {
