@@ -82,174 +82,45 @@ path is 6% slower than the no-budget path (4908 vs. 4628 ns/op).
 SC-005 (no regression on legacy path): **PASS** — `BenchmarkExec_NoBudget_Legacy`
 is 11% faster than the Feature-002 baseline (4628 vs. 5188 ns/op).
 
-### Full benchmark suite — pre-rewrite vs. streaming core (same hardware)
+### Full benchmark suite — original raymond vs. streaming core (same hardware)
 
-These are an honest, same-machine comparison: `77ecb99~1` (the commit before the
-streaming-core rewrite) vs. this branch, both on the Apple M1 Pro, Go 1.26.1,
-`-count=6`, summarized with `benchstat`. "old" is the pre-rewrite code, "new"
-is the streaming core.
+An honest, same-machine comparison: the original pre-rewrite raymond (the
+`baseline` branch fork point) vs. the current optimized streaming core, both on
+the Apple M1 Pro, Go 1.26.1, `-count=6`, summarized with `benchstat`. "old" is
+the pre-rewrite code, "new" is the streaming core after the allocation work.
 
 | Benchmark                   | old ns/op | new ns/op | Δ time | Δ B/op | Δ allocs |
 |-----------------------------|----------:|----------:|-------:|-------:|---------:|
-| `BenchmarkArguments`        |      1143 |      2364 | +107%  | +218%  |  +65%    |
-| `BenchmarkArrayEach`        |      3104 |      3538 |  +14%  |  +12%  |  −19%    |
-| `BenchmarkArrayMustache`    |      2739 |      3409 |  +24%  |   +8%  |  −20%    |
-| `BenchmarkComplex`          |      8759 |      7596 |  −13%  |  −18%  |  −41%    |
-| `BenchmarkData`             |      4222 |      5141 |  +22%  |  +14%  |  −12%    |
-| `BenchmarkDepth1`           |      2960 |      3482 |  +18%  |  +13%  |  −21%    |
-| `BenchmarkDepth2`           |      8379 |      9064 |   +8%  |  +17%  |  −24%    |
-| `BenchmarkObjectMustache`   |      1225 |      1644 |  +34%  |  +46%  |  −19%    |
-| `BenchmarkObject`           |      1554 |      1788 |  +15%  |  +50%  |  −21%    |
-| `BenchmarkPartialRecursion` |      4182 |      4472 |   +7%  |  +41%  |  −20%    |
-| `BenchmarkPartial`          |      4878 |      4474 |   −8%  |  −19%  |  −41%    |
-| `BenchmarkPath`             |      1806 |      2636 |  +46%  |  +53%  |  +18%    |
-| `BenchmarkString`           |       250 |       243 |   −3%  |  +40%  |  −10%    |
-| `BenchmarkSubExpression`    |       772 |      1132 |  +47%  | +118%  |  +33%    |
-| `BenchmarkVariables`        |      1102 |      1147 |   +4%  |  +28%  |  −22%    |
-| _geomean_                   |           |           |  +13%  |  +24%  |  −15%    |
+| `BenchmarkArguments`        |      1117 |      1797 | +61%   | +180%  |   +4%    |
+| `BenchmarkArrayEach`        |      3084 |      3032 |  ~     |   +1%  |  −37%    |
+| `BenchmarkArrayMustache`    |      2723 |      2967 |  +9%   |   −3%  |  −39%    |
+| `BenchmarkComplex`          |      8787 |      6610 | −25%   |  −25%  |  −52%    |
+| `BenchmarkData`             |      4207 |      4207 |  ~     |   ~    |  −35%    |
+| `BenchmarkDepth1`           |      3086 |      2943 |  ~     |   +2%  |  −38%    |
+| `BenchmarkDepth2`           |      8617 |      7936 |  −8%   |   +7%  |  −38%    |
+| `BenchmarkObjectMustache`   |      1232 |      1381 | +12%   |  +23%  |  −44%    |
+| `BenchmarkObject`           |      1554 |      1520 |  −2%   |  +29%  |  −41%    |
+| `BenchmarkPartialRecursion` |      4186 |      3819 |  −9%   |  +26%  |  −37%    |
+| `BenchmarkPartial`          |      4910 |      3864 | −21%   |  −28%  |  −55%    |
+| `BenchmarkPath`             |      1825 |      2002 | +10%   |  +13%  |  −28%    |
+| `BenchmarkString`           |       252 |       174 | −31%   |  +22%  |  −40%    |
+| `BenchmarkSubExpression`    |       788 |       942 | +19%   |  +73%  |   −5%    |
+| `BenchmarkVariables`        |      1093 |       970 | −11%   |   +9%  |  −44%    |
+| _geomean_                   |           |           |  −2%   |  +15%  |  −37%    |
 
-The render micro-benchmarks are a **mixed result, not a universal speedup**: on
-identical hardware the streaming core is ~13% slower in wall-clock and allocates
-~24% more bytes on geomean, while cutting allocation _count_ ~15%. A few paths
-improve (`Complex` −13%, `Partial` −8%); several regress (`Arguments` +107%,
-`Path` +46%, `SubExpression` +47%). The clear wins are on the budgeted/legacy
-`Exec` path measured in the SC-004/SC-005 gate above (`Exec_NoBudget_Legacy`
-−10% time / −42% allocs), which was Feature 003's actual target.
+The headline: **allocation count is down ~37%** across the suite, and **wall-clock
+is at rough parity** (−2% geomean) — several templates are now meaningfully faster
+than the original (`Complex` −25%, `String` −31%, `Partial` −21%, `Variables`
+−11%). The remaining regressions are concentrated in **reflected-helper-heavy**
+templates: `Arguments` (+61% time, +180% B), `SubExpression` (+19% / +73% B),
+`ObjectMustache` (+12%), `Path` (+10%). Those carry the streaming core's extra
+`Value`/`Options` round-trip on every reflected helper call; the byte geomean
+(+15%) is almost entirely those few benchmarks.
 
-> An earlier version of this table reported 65–87% speedups. That was an
+> An even earlier version of this table reported 65–87% speedups. That was an
 > artifact of comparing the original raymond's published numbers (a 2014 Intel
-> Core i5) against the new M1 Pro runs — different hardware, so the deltas were
-> meaningless. The table above corrects that with a same-machine comparison.
-
-### Optimization pass 1 — helper/path allocations _(2026-06-11)_
-
-The mixed result above prompted an allocation-focused pass over the hot helper
-and path code. Three behaviour-preserving changes (full test suite green):
-
-- `callHelper` preallocates the `params` slice to its exact length instead of
-  growing a `nil` slice — `Value` is a ~128-byte struct, so the repeated-growth
-  copies were the single largest allocator in `BenchmarkArguments`.
-- The core helper-call path now evaluates the hash with a values-only
-  `evalHashValues`, dropping a parallel `map[string]interface{}` it built and
-  immediately discarded.
-- The adapter's per-value `strFn func() string` closure was replaced with a
-  `legacyStr bool` flag; `Value` already stores `raw`, so `Str()` calls
-  `Str(v.raw)` directly. This removes one heap closure per adapted
-  map/slice/struct value — the dominant cost in `BenchmarkPath`.
-
-Streaming-core baseline → optimized, same M1 Pro, `-count=6`:
-
-| Benchmark                   | Δ time | Δ B/op | Δ allocs |
-|-----------------------------|-------:|-------:|---------:|
-| `BenchmarkArguments`        |  −8.6% |  +1.7% |  −15.8%  |
-| `BenchmarkArrayEach`        |  −4.0% |  −6.2% |   −9.5%  |
-| `BenchmarkArrayMustache`    |  −4.3% |  −6.3% |  −10.5%  |
-| `BenchmarkComplex`          |  ~     |  −5.6% |   −6.5%  |
-| `BenchmarkData`             |  −4.4% |  −8.1% |  −12.1%  |
-| `BenchmarkDepth1`           |  −3.1% |  −6.3% |   −9.7%  |
-| `BenchmarkDepth2`           |  ~     |  −5.8% |   −7.3%  |
-| `BenchmarkObjectMustache`   |  −2.8% |  −8.3% |   −7.7%  |
-| `BenchmarkObject`           |  ~     |  −7.7% |   −6.5%  |
-| `BenchmarkPartialRecursion` |  −2.3% |  −8.0% |   −8.6%  |
-| `BenchmarkPartial`          |  ~     |  −5.7% |   −7.7%  |
-| `BenchmarkPath`             |  −0.9% | −12.9% |  −12.8%  |
-| `BenchmarkString`           |  −6.2% |  −2.7% |   ~      |
-| `BenchmarkSubExpression`    |  −3.1% |  −3.8% |   −3.6%  |
-| `BenchmarkVariables`        |  ~     |  −4.8% |   −4.8%  |
-| _geomean_                   | −2.53% | −5.05% |  −6.84%  |
-
-No benchmark regressed in wall-clock; every one allocates less or equal. The one
-byte-size uptick (`Arguments` +1.7%) is the `make(map, n)` size hint over-sizing
-for that template's four same-key hash pairs — a deliberate trade for −6 allocs.
-
-### Optimization pass 2 — per-execute & empty-collection allocations _(2026-06-11)_
-
-A second profiling round (by `alloc_objects`) found allocations paid on every
-execute or for empty collections. Four behaviour-preserving changes:
-
-- `rawHash` returns `nil` for an empty/absent hash instead of allocating an empty
-  map — every legacy helper call without a hash paid for one (7.8% of
-  `BenchmarkSubExpression` allocations).
-- the lambda-call `Options` no longer preallocates an empty hash map.
-- `exprFunc` (a per-execute memo map) is allocated lazily on first write; most
-  templates never touch it.
-- the `helperSeam`/`partialSeam` resolution closures are memoized per
-  `Template`/`Compiled` via `sync.Once` instead of rebuilt on every
-  `MustExec`/`Execute`. They resolve helpers and partials dynamically, so
-  caching them is behaviour-identical (verified race-clean under concurrent
-  execute).
-
-Pass 1 → pass 2, same M1 Pro, `-count=6`:
-
-| Benchmark                   | Δ time | Δ B/op | Δ allocs |
-|-----------------------------|-------:|-------:|---------:|
-| `BenchmarkArguments`        |  ~     |  −2.4% |   −9.4%  |
-| `BenchmarkArrayEach`        |  ~     |  −2.5% |   −5.3%  |
-| `BenchmarkArrayMustache`    |  −5.8% |  −2.8% |   −5.9%  |
-| `BenchmarkComplex`          |  ~     |  −0.6% |   −2.0%  |
-| `BenchmarkData`             |  ~     |  −2.3% |   −4.1%  |
-| `BenchmarkDepth1`           |  ~     |  −2.6% |   −5.4%  |
-| `BenchmarkDepth2`           |  ~     |  −1.2% |   −2.3%  |
-| `BenchmarkObjectMustache`   |  −4.1% |  −7.5% |  −12.5%  |
-| `BenchmarkObject`           |  −8.2% |  −5.9% |  −10.3%  |
-| `BenchmarkPartialRecursion` |  ~     |  −2.3% |   −4.7%  |
-| `BenchmarkPartial`          |  ~     |  −2.7% |   −5.0%  |
-| `BenchmarkPath`             |  ~     |  −7.4% |   −7.3%  |
-| `BenchmarkString`           |  ~     | −13.9% |  −33.3%  |
-| `BenchmarkSubExpression`    | −12.4% | −12.5% |  −18.5%  |
-| `BenchmarkVariables`        |  −5.8% | −10.0% |  −15.0%  |
-| _geomean_                   | −3.78% | −4.29% |  −8.20%  |
-
-Every benchmark allocates strictly less. Combined, the two passes move the
-streaming core from roughly +14% wall-clock / −21% allocs versus the original
-raymond down to roughly +9–10% wall-clock / −27% allocs — i.e. the engine now
-allocates well under the original, with the remaining wall-clock gap concentrated
-in the reflection-heavy helper and path code.
-
-### Optimization pass 3 — the three structural follow-ups _(2026-06-11)_
-
-The three structural costs flagged after pass 2 were each attempted. Two landed
-cleanly; the third was partly addressed by a better adjacent fix.
-
-1. **Path lookup.** `reflectData.Lookup` ran a method-existence check before
-   every field resolution, and that check always called `MethodByName` twice plus
-   `strings.Title(name)` (a fresh allocation) even for method-less types like
-   `map[string]interface{}`. Guarding on `reflect.Value.NumMethod()==0` skips it.
-   This turned out to dwarf the originally-scoped `reflectData` removal, so the
-   latter (which would need a `reflect.Value` stored in `Value`, growing every
-   `[]Value`) was **deferred** as high-risk / low-reward.
-2. **Arguments / `Options`.** `Options` now carries the `Value`-typed hash and
-   converts it to the interface-typed map lazily on first `Hash()` access, so a
-   helper that ignores its hash pays nothing for `rawHash`.
-3. **Helper resolution.** Template- and `Compiled`-local helper wrappers are
-   memoized (they are add-only, so never stale). Globals are deliberately not
-   cached — `RemoveHelper`/`RemoveAllHelpers` could invalidate them.
-
-Pass 2 → pass 3, same M1 Pro, `-count=6`:
-
-| Benchmark                   | Δ time | Δ B/op | Δ allocs |
-|-----------------------------|-------:|-------:|---------:|
-| `BenchmarkArguments`        | −16.2% |  −1.7% |  −17.2%  |
-| `BenchmarkArrayEach`        |  −8.2% |  −1.6% |   −9.3%  |
-| `BenchmarkArrayMustache`    | −11.7% |  −1.7% |  −10.4%  |
-| `BenchmarkComplex`          | −10.6% |  −2.7% |  −11.2%  |
-| `BenchmarkData`             | −12.1% |  −3.3% |  −12.9%  |
-| `BenchmarkDepth1`           |  −3.9% |  −1.6% |   −9.4%  |
-| `BenchmarkDepth2`           | −10.9% |  −1.6% |  −10.4%  |
-| `BenchmarkObjectMustache`   | −19.3% |  −3.3% |  −14.3%  |
-| `BenchmarkObject`           | −17.9% |  −2.5% |  −11.5%  |
-| `BenchmarkPartialRecursion` |  −9.1% |  −1.4% |   −9.8%  |
-| `BenchmarkPartial`          | −14.5% |  −3.0% |  −12.3%  |
-| `BenchmarkPath`             | −18.3% | −10.4% |  −23.7%  |
-| `BenchmarkString`           |  ~     |  ~     |   ~      |
-| `BenchmarkSubExpression`    |  ~     |  −7.8% |   −9.1%  |
-| `BenchmarkVariables`        |  −9.3% |  −3.3% |  −11.8%  |
-| _geomean_                   | −8.93% | −3.11% |  −9.61%  |
-
-This is the first pass to move **wall-clock** broadly (the `NumMethod` skip helps
-every reflection-based field lookup). Across all three passes the streaming core
-now sits at roughly **parity-to-slightly-slower** wall-clock versus the original
-raymond on most templates (a few are faster), while allocating well below it.
+> Core i5) against M1 Pro runs — different hardware, so the deltas were
+> meaningless. The table above is a same-machine comparison.
 
 ### Reproducing these numbers
 
