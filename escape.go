@@ -40,7 +40,11 @@ func escape(w writer, s string) error {
 		case '"':
 			esc = "&quot;"
 		default:
-			panic("unrecognized escape character")
+			// Unreachable: IndexAny only returns positions of characters in
+			// escapedChars, and the cases above cover all of them. If the two
+			// ever drift out of sync, emit the byte unescaped rather than
+			// panicking or silently dropping it.
+			esc = s[i : i+1]
 		}
 		s = s[i+1:]
 		if _, err := w.WriteString(esc); err != nil {

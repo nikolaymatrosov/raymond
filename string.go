@@ -30,6 +30,13 @@ func strValue(value reflect.Value) string {
 
 	ival, ok := printableValue(value)
 	if !ok {
+		// Reached only for an unprintable value (a chan or func that is not
+		// an error/Stringer). Str/strValue are exported, return a bare string
+		// (no error channel), and are called pervasively, so we cannot return
+		// an error here without a wide breaking change. We panic with an
+		// error value on purpose: during rendering it is recovered by the
+		// template's errRecover and surfaced as a normal render error. This
+		// mirrors Go's text/template (printableValue + errorf) heritage.
 		panic(fmt.Errorf("Can't print value: %q", value))
 	}
 
