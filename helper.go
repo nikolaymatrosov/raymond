@@ -38,13 +38,22 @@ var helpersMutex sync.RWMutex
 
 func init() {
 	// register builtin helpers
-	RegisterHelper("if", HelperFunc(builtinIf))
-	RegisterHelper("unless", HelperFunc(builtinUnless))
-	RegisterHelper("with", HelperFunc(builtinWith))
-	RegisterHelper("each", HelperFunc(builtinEach))
-	RegisterHelper("log", HelperFunc(builtinLog))
-	RegisterHelper("lookup", HelperFunc(builtinLookup))
-	RegisterHelper("equal", HelperFunc(builtinEqual))
+	mustRegisterHelper("if", HelperFunc(builtinIf))
+	mustRegisterHelper("unless", HelperFunc(builtinUnless))
+	mustRegisterHelper("with", HelperFunc(builtinWith))
+	mustRegisterHelper("each", HelperFunc(builtinEach))
+	mustRegisterHelper("log", HelperFunc(builtinLog))
+	mustRegisterHelper("lookup", HelperFunc(builtinLookup))
+	mustRegisterHelper("equal", HelperFunc(builtinEqual))
+}
+
+// mustRegisterHelper registers a builtin helper, panicking on error. Used
+// only for our own constant builtins, where a failure is a programming bug
+// (analogous to regexp.MustCompile of a literal).
+func mustRegisterHelper(name string, helper any) {
+	if err := RegisterHelper(name, helper); err != nil {
+		panic(err)
+	}
 }
 
 // RegisterHelper registers a global helper. That helper will be available to all templates.
@@ -52,12 +61,15 @@ func init() {
 // helper may be a classic Go function (invoked through reflection, with
 // optional trailing *Options parameter) or a streaming Helper /
 // func(*HelperCall) error.
-func RegisterHelper(name string, helper any) {
+//
+// Returns an error if a helper with the same name is already registered or
+// the helper is invalid.
+func RegisterHelper(name string, helper any) error {
 	helpersMutex.Lock()
 	defer helpersMutex.Unlock()
 
 	if helpers[name].valid() {
-		panic(fmt.Errorf("Helper already registered: %s", name))
+		return fmt.Errorf("Helper already registered: %s", name)
 	}
 
 	switch h := helper.(type) {
@@ -67,16 +79,23 @@ func RegisterHelper(name string, helper any) {
 		helpers[name] = helperEntry{streaming: HelperFunc(h)}
 	default:
 		val := reflect.ValueOf(helper)
-		ensureValidHelper(name, val)
+		if err := ensureValidHelper(name, val); err != nil {
+			return err
+		}
 		helpers[name] = helperEntry{legacy: val}
 	}
+	return nil
 }
 
 // RegisterHelpers registers several global helpers. Those helpers will be available to all templates.
-func RegisterHelpers(helpers map[string]any) {
+// Returns the first error encountered, if any.
+func RegisterHelpers(helpers map[string]any) error {
 	for name, helper := range helpers {
-		RegisterHelper(name, helper)
+		if err := RegisterHelper(name, helper); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // RemoveHelper unregisters a global helper
@@ -95,19 +114,18 @@ func RemoveAllHelpers() {
 	helpers = make(map[string]helperEntry)
 }
 
-// ensureValidHelper panics if given helper is not valid
-func ensureValidHelper(name string, funcValue reflect.Value) {
+// ensureValidHelper returns an error if given helper is not valid.
+func ensureValidHelper(name string, funcValue reflect.Value) error {
 	if funcValue.Kind() != reflect.Func {
-		panic(fmt.Errorf("Helper must be a function: %s", name))
+		return fmt.Errorf("Helper must be a function: %s", name)
 	}
 
-	funcType := funcValue.Type()
-
-	if funcType.NumOut() != 1 {
-		panic(fmt.Errorf("Helper function must return a string or a SafeString: %s", name))
+	if funcValue.Type().NumOut() != 1 {
+		return fmt.Errorf("Helper function must return a string or a SafeString: %s", name)
 	}
 
 	// @todo Check if first returned value is a string, SafeString or interface{} ?
+	return nil
 }
 
 // findHelper finds a globally registered helper

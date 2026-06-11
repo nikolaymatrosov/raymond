@@ -253,6 +253,20 @@ type Author struct {
 	LastName  string
 }
 
+func TestRegisterHelper_DuplicateReturnsError(t *testing.T) {
+	RegisterHelper("dup_d1", func() string { return "" })
+	defer RemoveHelper("dup_d1")
+	if err := RegisterHelper("dup_d1", func() string { return "" }); err == nil {
+		t.Fatal("re-registering a helper must return an error, got nil")
+	}
+}
+
+func TestRegisterHelper_InvalidReturnsError(t *testing.T) {
+	if err := RegisterHelper("notafunc_d1", 42); err == nil {
+		t.Fatal("registering a non-function helper must return an error, got nil")
+	}
+}
+
 func TestHelperCtx(t *testing.T) {
 	RegisterHelper("template", func(name string, options *Options) SafeString {
 		context := options.Ctx()
