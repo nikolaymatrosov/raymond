@@ -47,11 +47,12 @@ func adaptReflectValue(rv reflect.Value) Value {
 	case reflect.Float32, reflect.Float64:
 		return Value{kind: KindFloat, truth: truth, num: math.Float64bits(ind.Float()), raw: raw}
 	case reflect.Array, reflect.Slice:
+		// reflectData is both List and Data, so ref answers asList and asData.
 		rd := &reflectData{rv: ind}
-		return Value{kind: KindList, truth: truth, list: rd, data: rd, raw: raw, legacyStr: true}
+		return Value{kind: KindList, truth: truth, ref: rd, raw: raw, legacyStr: true}
 	case reflect.Map, reflect.Struct:
 		rd := &reflectData{rv: ind}
-		return Value{kind: KindMap, truth: truth, data: rd, raw: raw, legacyStr: true}
+		return Value{kind: KindMap, truth: truth, ref: rd, raw: raw, legacyStr: true}
 	case reflect.Func:
 		fv := funcValue(&legacyFunc{name: "", fn: ind}, false, raw)
 		fv.legacyStr = true

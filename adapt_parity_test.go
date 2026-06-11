@@ -51,7 +51,7 @@ func TestAdapt_StructLookup(t *testing.T) {
 	}
 
 	// title field lookup
-	titleVal, ok := v.data.Lookup("title")
+	titleVal, ok := v.asData().Lookup("title")
 	if !ok {
 		t.Fatal("Lookup(\"title\") not found")
 	}
@@ -60,7 +60,7 @@ func TestAdapt_StructLookup(t *testing.T) {
 	}
 
 	// alias struct tag lookup
-	aliasVal, ok := v.data.Lookup("alias")
+	aliasVal, ok := v.asData().Lookup("alias")
 	if !ok {
 		t.Fatal("Lookup(\"alias\") not found")
 	}
@@ -69,7 +69,7 @@ func TestAdapt_StructLookup(t *testing.T) {
 	}
 
 	// method lookup (subject)
-	subjectVal, ok := v.data.Lookup("subject")
+	subjectVal, ok := v.asData().Lookup("subject")
 	if !ok {
 		t.Fatal("Lookup(\"subject\") not found")
 	}
@@ -81,7 +81,7 @@ func TestAdapt_StructLookup(t *testing.T) {
 	}
 
 	// inner struct lookup
-	innerVal, ok := v.data.Lookup("inner")
+	innerVal, ok := v.asData().Lookup("inner")
 	if !ok {
 		t.Fatal("Lookup(\"inner\") not found")
 	}
@@ -90,7 +90,7 @@ func TestAdapt_StructLookup(t *testing.T) {
 	}
 
 	// missing key
-	_, ok = v.data.Lookup("nope")
+	_, ok = v.asData().Lookup("nope")
 	if ok {
 		t.Error("Lookup(\"nope\") returned ok=true, want false")
 	}
@@ -100,7 +100,7 @@ func TestAdapt_MapAndSliceLookup(t *testing.T) {
 	// map lookup
 	m := map[string]interface{}{"foo": "bar", "num": 99}
 	mv := adaptValue(m)
-	fooVal, ok := mv.data.Lookup("foo")
+	fooVal, ok := mv.asData().Lookup("foo")
 	if !ok {
 		t.Fatal("map Lookup(\"foo\") not found")
 	}
@@ -114,15 +114,15 @@ func TestAdapt_MapAndSliceLookup(t *testing.T) {
 	if sv.Kind() != KindList {
 		t.Fatalf("adaptValue([]string{}).Kind() = %v, want KindList", sv.Kind())
 	}
-	if sv.list.Len() != 2 {
-		t.Fatalf("list.Len() = %d, want 2", sv.list.Len())
+	if sv.asList().Len() != 2 {
+		t.Fatalf("list.Len() = %d, want 2", sv.asList().Len())
 	}
-	if got := sv.list.Index(1).Str(); got != "b" {
+	if got := sv.asList().Index(1).Str(); got != "b" {
 		t.Errorf("list.Index(1).Str() = %q, want \"b\"", got)
 	}
 
 	// numeric-name lookup
-	bVal, ok := sv.data.Lookup("1")
+	bVal, ok := sv.asData().Lookup("1")
 	if !ok {
 		t.Fatal("slice Lookup(\"1\") not found")
 	}
@@ -131,7 +131,7 @@ func TestAdapt_MapAndSliceLookup(t *testing.T) {
 	}
 
 	// negative indices must not panic, just fail to resolve
-	if _, ok := sv.data.Lookup("-1"); ok {
+	if _, ok := sv.asData().Lookup("-1"); ok {
 		t.Error("Lookup(-1) should not resolve")
 	}
 }

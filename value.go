@@ -72,12 +72,24 @@ type Value struct {
 	// a float64 via math.Float64bits/Float64frombits. Unioning the three
 	// 8-byte numeric fields into one shrinks Value (it sits in every
 	// params slice, hash bucket and ctx stack).
-	num  uint64
-	list List
-	data Data
-	fn   callable
-	raw  interface{}
+	num uint64
+	// ref holds the single non-scalar payload. A Value is exactly one of
+	// list / map / func, so the three are unioned into one interface and
+	// recovered by type assertion (asList/asData/asFn). reflectData
+	// implements both List and Data, so a reflect-backed list answers
+	// both. Scalars leave ref nil, staying allocation-free.
+	ref interface{} // List | Data | callable
+	raw interface{}
 }
+
+// asList recovers the List payload, or nil if ref is not list-shaped.
+func (v Value) asList() List { l, _ := v.ref.(List); return l }
+
+// asData recovers the Data payload, or nil if ref is not map-shaped.
+func (v Value) asData() Data { d, _ := v.ref.(Data); return d }
+
+// asFn recovers the callable payload (KindFunc only).
+func (v Value) asFn() callable { fn, _ := v.ref.(callable); return fn }
 
 func (v Value) Kind() Kind             { return v.kind }
 func (v Value) IsValid() bool          { return v.kind != KindInvalid }
@@ -111,8 +123,9 @@ func (v Value) Str() string {
 			return Str(v.raw)
 		}
 		var sb strings.Builder
-		for i := 0; i < v.list.Len(); i++ {
-			sb.WriteString(v.list.Index(i).Str())
+		l := v.asList()
+		for i := 0; i < l.Len(); i++ {
+			sb.WriteString(l.Index(i).Str())
 		}
 		return sb.String()
 	default:
@@ -152,15 +165,15 @@ func floatValue(f float64, raw interface{}) Value {
 }
 
 func listValue(l List, truth bool, raw interface{}) Value {
-	return Value{kind: KindList, truth: truth, list: l, raw: raw}
+	return Value{kind: KindList, truth: truth, ref: l, raw: raw}
 }
 
 func mapValue(d Data, truth bool, raw interface{}) Value {
-	return Value{kind: KindMap, truth: truth, data: d, raw: raw}
+	return Value{kind: KindMap, truth: truth, ref: d, raw: raw}
 }
 
 func funcValue(fn callable, fromMethod bool, raw interface{}) Value {
-	return Value{kind: KindFunc, truth: true, fn: fn, fromMethod: fromMethod, raw: raw}
+	return Value{kind: KindFunc, truth: true, ref: fn, fromMethod: fromMethod, raw: raw}
 }
 
 // valueMap backs synthetic contexts (block params, partial hash ctx).

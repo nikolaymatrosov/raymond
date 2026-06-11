@@ -150,7 +150,7 @@ func (s *state) renderBlock(node *ast.BlockStatement) error {
 		}
 		if expr.Kind() == KindList {
 			// array context: per-element iteration frame (eval.go:855-868)
-			l := expr.list
+			l := expr.asList()
 			for i := 0; i < l.Len(); i++ {
 				if err := s.step(1); err != nil {
 					return err
@@ -482,8 +482,9 @@ func (s *state) evalCtxPath(ctx Value, parts []string, exprRoot bool) (Value, bo
 	if ctx.Kind() == KindList {
 		var values []Value
 		var raws []interface{}
-		for i := 0; i < ctx.list.Len(); i++ {
-			v, _, err := s.resolveParts(ctx.list.Index(i), parts, exprRoot)
+		cl := ctx.asList()
+		for i := 0; i < cl.Len(); i++ {
+			v, _, err := s.resolveParts(cl.Index(i), parts, exprRoot)
 			if err != nil {
 				return Value{}, false, err
 			}
@@ -531,12 +532,13 @@ func (s *state) lookupField(ctx Value, name string, exprRoot bool) (Value, error
 	if !ctx.IsValid() {
 		return Value{}, nil
 	}
-	if ctx.data == nil {
+	d := ctx.asData()
+	if d == nil {
 		// scalars/funcs as contexts resolve nothing
 		return Value{}, nil
 	}
 
-	res, _ := ctx.data.Lookup(name)
+	res, _ := d.Lookup(name)
 
 	if res.Kind() == KindFunc {
 		fromMethod := res.fromMethod
@@ -574,7 +576,7 @@ func (s *state) invokeFunc(fnVal Value, exprRoot bool) (Value, error) {
 	} else {
 		opts = &Options{s: s}
 	}
-	return fnVal.fn.call(s, opts)
+	return fnVal.asFn().call(s, opts)
 }
 
 // helperOptions ports eval.go:672-686 for lambda invocation.

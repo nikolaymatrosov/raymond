@@ -89,13 +89,11 @@ func builtinEach(hc *HelperCall) error {
 // iterableOf extracts the Iterable behind a Value (reflectData and
 // valueMap implement it; bare Lists iterate by index).
 func iterableOf(v Value) Iterable {
-	if v.data != nil {
-		if it, ok := v.data.(Iterable); ok {
-			return it
-		}
+	if it, ok := v.ref.(Iterable); ok {
+		return it
 	}
-	if v.list != nil {
-		return listIterable{l: v.list}
+	if l := v.asList(); l != nil {
+		return listIterable{l: l}
 	}
 	return nil
 }
